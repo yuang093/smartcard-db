@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL 16 ───────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: smartcard_v2_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smartcard
+      POSTGRES_PASSWORD: smartcard_password
+      POSTGRES_DB: smartcard
+    volumes:
+      - ./volumes/pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartcard -d smartcard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend ─────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smartcard_v2_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://smartcard:smartcard_password@postgres:5432/smartcard
+      SECRET_KEY: ${SECRET_KEY:-CHANGE_ME_IN_PRODUCTION}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Next.js Frontend ─────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smartcard_v2_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8000
+    depends_on:
+      - backend
+
+  # ── Cloudflare Tunnel ───────────────────────────────────
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: smartcard_v2_cloudflared
+    restart: unless-stopped
+    command: tunnel run --token ${CLOUDFLARED_TOKEN}
+    depends_on:
+      - frontend
+
+volumes:
+  pg_data:
