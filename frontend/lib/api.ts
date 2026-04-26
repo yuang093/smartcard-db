@@ -107,6 +107,13 @@ export interface Card {
   tags: { id: string; name: string; color: string }[];
 }
 
+export interface DuplicateWarning {
+  name: string;
+  company: string;
+  count: number;
+  cards: { id: string; created_at: string }[];
+}
+
 export const cardsApi = {
   list: (search?: string) =>
     apiRequest<Card[]>(`/api/v1/cards${search ? `?search=${encodeURIComponent(search)}` : ''}`),
@@ -129,6 +136,9 @@ export const cardsApi = {
     apiRequest<{ message: string }>(`/api/v1/cards/${id}`, {
       method: 'DELETE',
     }),
+
+  checkDuplicates: (name: string, company?: string) =>
+    apiRequest<DuplicateWarning[]>(`/api/v1/cards/duplicates?name=${encodeURIComponent(name)}&company=${encodeURIComponent(company || '')}`),
 };
 
 // Tags API

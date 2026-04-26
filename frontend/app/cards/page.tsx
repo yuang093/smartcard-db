@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { cardsApi, Card } from '@/lib/api';
+import { cardsApi, Card, DuplicateWarning } from '@/lib/api';
 
 export default function CardsPage() {
   const { isAuthenticated, loading, logout } = useAuth();
@@ -13,6 +13,9 @@ export default function CardsPage() {
   const [loadingCards, setLoadingCards] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const [duplicates, setDuplicates] = useState<DuplicateWarning[]>([]);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [pendingCard, setPendingCard] = useState<Partial<Card> | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -77,6 +80,22 @@ export default function CardsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If creating new card, check for duplicates first
+    if (!editingCard && formData.name) {
+      try {
+        const dupes = await cardsApi.checkDuplicates(formData.name, formData.company);
+        if (dupes && dupes.length > 0) {
+          setDuplicates(dupes);
+          setPendingCard(formData);
+          setShowDuplicateWarning(true);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to check duplicates:', err);
+      }
+    }
+    
     try {
       if (editingCard) {
         await cardsApi.update(editingCard.id, formData);
@@ -87,7 +106,22 @@ export default function CardsPage() {
       loadCards();
     } catch (err) {
       console.error('Failed to save card:', err);
-      alert('儲存失敗');
+      alert('Failed to save card');
+    }
+  };
+
+  const handleDuplicateConfirm = async () => {
+    if (!pendingCard) return;
+    try {
+      await cardsApi.create(pendingCard);
+      setShowDuplicateWarning(false);
+      setPendingCard(null);
+      setDuplicates([]);
+      resetForm();
+      loadCards();
+    } catch (err) {
+      console.error('Failed to save card:', err);
+      alert('Failed to save card');
     }
   };
 
@@ -365,6 +399,45 @@ export default function CardsPage() {
                 </p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Duplicate Warning Modal */}
+        {showDuplicateWarning && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold text-yellow-600 mb-4">Warning: Duplicate Card</h3>
+              <p className="text-gray-700 mb-4">
+                A card with the same name and company already exists:
+              </p>
+              {duplicates.map((dup, idx) => (
+                <div key={idx} className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-2">
+                  <p className="font-medium">"{dup.name}" @ "{dup.company}"</p>
+                  <p className="text-sm text-gray-600">{dup.count} cards found</p>
+                </div>
+              ))}
+              <p className="text-gray-700 mb-4">
+                Do you want to add this card anyway?
+              </p>
+              <div className="flex gap-4 justify-end">
+                <button
+                  onClick={() => {
+                    setShowDuplicateWarning(false);
+                    setPendingCard(null);
+                    setDuplicates([]);
+                  }}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDuplicateConfirm}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded"
+                >
+                  Add Anyway
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>

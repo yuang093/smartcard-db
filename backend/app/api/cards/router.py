@@ -45,6 +45,40 @@ async def list_cards(
     return [_card_to_response(card) for card in cards]
 
 
+@router.get("/duplicates", response_model=list[dict])
+async def check_duplicates(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """偵測重複名片（同名稱+同公司）"""
+    result = await db.execute(
+        select(Card).where(Card.user_id == current_user.id).order_by(Card.name, Card.company)
+    )
+    all_cards = result.scalars().all()
+    
+    # Group by name + company
+    groups: dict[tuple, list[Card]] = {}
+    for card in all_cards:
+        if card.name:  # Only check if name exists
+            key = (card.name.strip().lower(), (card.company or "").strip().lower())
+            if key not in groups:
+                groups[key] = []
+            groups[key].append(card)
+    
+    # Find duplicates
+    duplicates = []
+    for key, cards in groups.items():
+        if len(cards) > 1:
+            duplicates.append({
+                "name": key[0],
+                "company": key[1],
+                "count": len(cards),
+                "cards": [{"id": str(c.id), "created_at": c.created_at.isoformat() if c.created_at else ""} for c in cards],
+            })
+    
+    return duplicates
+
+
 @router.post("", response_model=CardResponse)
 async def create_card(
     card_data: CardCreate,
