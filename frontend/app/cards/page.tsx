@@ -100,13 +100,23 @@ export default function CardsPage() {
       if (editingCard) {
         await cardsApi.update(editingCard.id, formData);
       } else {
+        // Check for duplicates first
+        if (formData.name) {
+          const dupes = await cardsApi.checkDuplicates(formData.name, formData.company);
+          if (dupes && dupes.length > 0) {
+            setDuplicates(dupes);
+            setPendingCard(formData);
+            setShowDuplicateWarning(true);
+            return;
+          }
+        }
         await cardsApi.create(formData);
       }
       resetForm();
       loadCards();
     } catch (err) {
       console.error('Failed to save card:', err);
-      alert('Failed to save card');
+      alert(err instanceof Error ? err.message : 'Failed to save card');
     }
   };
 
