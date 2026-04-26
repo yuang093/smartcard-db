@@ -29,14 +29,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://smartcard:smartcard_password@postgres:5432/smartcard
       SECRET_KEY: ${SECRET_KEY:-CHANGE_ME_IN_PRODUCTION}
       MINIMAX_API_KEY: ${MINIMAX_API_KEY}
+      POSTGRES_HOST: postgres
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\" || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
 
   # ── Next.js Frontend ─────────────────────────────────────
   frontend:
@@ -61,7 +57,9 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: smartcard_v2_cloudflared
     restart: unless-stopped
-    command: tunnel run --token ${CLOUDFLARED_TOKEN}
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel run --token "${CLOUDFLARE_TUNNEL_TOKEN}"
     depends_on:
       - frontend
 
