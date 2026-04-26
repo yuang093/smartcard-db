@@ -138,7 +138,7 @@ export const cardsApi = {
     }),
 
   checkDuplicates: (name: string, company?: string) =>
-    apiRequest<DuplicateWarning[]>(`/api/v1/cards/duplicates?name=${encodeURIComponent(name)}&company=${encodeURIComponent(company || '')}`),
+    apiRequest<DuplicateWarning[]>(`/api/v1/cards/check-duplicates?name=${encodeURIComponent(name)}&company=${encodeURIComponent(company || '')}`),
 };
 
 // Tags API

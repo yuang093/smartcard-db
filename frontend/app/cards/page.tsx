@@ -120,8 +120,17 @@ export default function CardsPage() {
       resetForm();
       loadCards();
     } catch (err) {
-      console.error('Failed to save card:', err);
-      alert('Failed to save card');
+      // If backend also detects duplicate (user already confirmed), treat as success
+      if (err instanceof Error && err.message.includes('此名片資料已存在')) {
+        setShowDuplicateWarning(false);
+        setPendingCard(null);
+        setDuplicates([]);
+        resetForm();
+        loadCards();
+      } else {
+        console.error('Failed to save card:', err);
+        alert('Failed to save card');
+      }
     }
   };
 

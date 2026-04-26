@@ -45,7 +45,7 @@ async def list_cards(
     return [_card_to_response(card) for card in cards]
 
 
-@router.get("/duplicates", response_model=list[dict])
+@router.get("/check-duplicates", response_model=list[dict])
 async def check_duplicates(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -128,12 +128,6 @@ async def create_card(
         )
     except Exception as e:
         await db.rollback()
-        error_msg = str(e).lower()
-        if 'unique' in error_msg or 'duplicate' in error_msg or 'uq_card' in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="此名片資料已存在（相同姓名+公司）",
-            )
         import traceback
         traceback.print_exc()
         raise HTTPException(

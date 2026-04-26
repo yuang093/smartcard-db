@@ -6,7 +6,6 @@ from sqlalchemy import (
     Text,
     DateTime,
     ForeignKey,
-    UniqueConstraint,
     Index,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -22,13 +21,6 @@ class Card(Base):
 
     __tablename__ = "cards"
     __table_args__ = (
-        # 防止同一使用者有重複 (姓名+公司)
-        UniqueConstraint(
-            "user_id",
-            "name",
-            "company",
-            name="uq_card_user_name_company",
-        ),
         # 加速常見查詢
         Index("ix_card_user_id", "user_id"),
         Index("ix_card_user_name", "user_id", "name"),
