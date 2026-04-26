@@ -169,6 +169,35 @@ export default function CardsPage() {
     }
   };
 
+  const handleDownloadVCard = (card: Card) => {
+    // Generate vCard format
+    const lines = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${card.name || ''}`,
+      `N:${card.name || ''};;;`,
+      card.company ? `ORG:${card.company}` : '',
+      card.title ? `TITLE:${card.title}` : '',
+      card.phone ? `TEL;TYPE=WORK,VOICE:${card.phone}` : '',
+      card.mobile ? `TEL;TYPE=CELL,VOICE:${card.mobile}` : '',
+      card.email ? `EMAIL:${card.email}` : '',
+      card.address ? `ADR;TYPE=WORK:;;${card.address};;;;` : '',
+      'END:VCARD',
+    ].filter(line => line !== '');
+
+    const vcardContent = lines.join('\r\n');
+    const blob = new Blob([vcardContent], { type: 'text/vcard;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const filename = `${(card.name || 'contact').replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}.vcf`;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
   const handleLogout = () => {
     logout();
     router.push('/login');
@@ -393,7 +422,13 @@ export default function CardsPage() {
               <div key={card.id} className="bg-white rounded-lg shadow p-4">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="text-xl font-bold text-gray-900">{card.name || '(未填寫)'}</h3>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => handleDownloadVCard(card)}
+                      className="text-green-600 hover:text-green-800 text-sm"
+                    >
+                      vCard
+                    </button>
                     <button
                       onClick={() => handleEdit(card)}
                       className="text-blue-600 hover:text-blue-800 text-sm"
