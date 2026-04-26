@@ -14,8 +14,8 @@
 
 ## Phase 2: 使用者認證與管理 (Auth & Tenant)
 
-- [ ] **2.1** 實作註冊（Register）API 與頁面
-- [ ] **2.2** 實作登入（Login）API 與頁面
+- [x] **2.1** 實作註冊（Register）API 與頁面 ✅
+- [x] **2.2** 實作登入（Login）API 與頁面 ✅
 - [ ] **2.3** 實作後台帳號管理頁面
 - [ ] **2.4** API Middleware 實作 `user_id` 資料隔離
 
