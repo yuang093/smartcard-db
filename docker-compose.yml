@@ -30,6 +30,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-CHANGE_ME_IN_PRODUCTION}
       MINIMAX_API_KEY: ${MINIMAX_API_KEY}
       POSTGRES_HOST: postgres
+    ports:
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,7 +44,7 @@ services:
     container_name: smartcard_v2_frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://backend:8000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "3000:3000"
     depends_on:
