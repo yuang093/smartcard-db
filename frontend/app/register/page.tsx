@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
@@ -18,6 +19,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
 
     // Validate passwords match
     if (password !== confirmPassword) {
@@ -39,12 +41,24 @@ export default function RegisterPage() {
       
       // Auto login after register
       const tokenResponse = await authApi.login(username, password);
-      const user = await authApi.getMe();
+      const user = await authApi.getMeWithToken(tokenResponse.access_token);
       
+      // Save auth state
       login(tokenResponse.access_token, user);
-      router.push('/cards');
+      
+      // Show success and redirect
+      setSuccess('註冊成功！即將跳轉至名片管理頁面...');
+      setTimeout(() => {
+        router.push('/cards');
+      }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '註冊失敗');
+      const errorMsg = err instanceof Error ? err.message : '註冊失敗';
+      // Convert technical errors to user-friendly messages
+      if (errorMsg.includes('Username already taken') || errorMsg.includes('Username already taken')) {
+        setError('帳號已存在，請選擇其他帳號');
+      } else {
+        setError(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -58,6 +72,12 @@ export default function RegisterPage() {
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            {success}
           </div>
         )}
 
