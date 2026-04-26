@@ -23,16 +23,21 @@ export async function apiRequest<T>(
     }
   }
 
-  const defaultHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
+  // Build headers - explicit headers take precedence over defaults
+  const requestHeaders: Record<string, string> = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...headers,
   };
 
+  // Set Content-Type to JSON only if not already set by explicit headers
+  if (!requestHeaders['Content-Type']) {
+    requestHeaders['Content-Type'] = 'application/json';
+  }
+
   const config: RequestInit = {
     method,
-    headers: defaultHeaders,
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    headers: requestHeaders,
+    ...(body ? { body: typeof body === 'string' ? body : (body instanceof URLSearchParams ? body.toString() : JSON.stringify(body)) } : {}),
   };
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
