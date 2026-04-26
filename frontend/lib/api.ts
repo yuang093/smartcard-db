@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = '';
 
 interface RequestOptions {
   method?: string;
@@ -38,8 +38,20 @@ export async function apiRequest<T>(
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-    throw new Error(error.detail || `HTTP ${response.status}`);
+    const text = await response.text();
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const errorData = JSON.parse(text);
+      // Handle FastAPI validation error format
+      if (Array.isArray(errorData)) {
+        errorMessage = errorData.map(e => e.msg || JSON.stringify(e)).join(', ');
+      } else if (errorData.detail) {
+        errorMessage = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
+      } else {
+        errorMessage = JSON.stringify(errorData);
+      }
+    } catch {}
+    throw new Error(errorMessage);
   }
 
   // Handle empty responses
