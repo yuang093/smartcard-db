@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { authApi } from '@/lib/api';
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -35,10 +35,10 @@ export default function RegisterPage() {
 
     try {
       // Register
-      await authApi.register(email, password);
+      await authApi.register(username, password);
       
       // Auto login after register
-      const tokenResponse = await authApi.login(email, password);
+      const tokenResponse = await authApi.login(username, password);
       const user = await authApi.getMe();
       
       login(tokenResponse.access_token, user);
@@ -63,16 +63,16 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-              電子郵件
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="username">
+              帳號
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              placeholder="your@email.com"
+              placeholder="輸入帳號"
               required
             />
           </div>

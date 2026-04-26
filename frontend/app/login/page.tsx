@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { authApi } from '@/lib/api';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,7 @@ export default function LoginPage() {
 
     try {
       // Login to get token
-      const tokenResponse = await authApi.login(email, password);
+      const tokenResponse = await authApi.login(username, password);
       
       // Get user info
       const user = await authApi.getMe();
@@ -51,16 +51,16 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-              電子郵件
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="username">
+              帳號
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              placeholder="your@email.com"
+              placeholder="輸入帳號"
               required
             />
           </div>

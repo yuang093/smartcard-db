@@ -38,19 +38,19 @@ async def get_current_user(
 @router.post("/register", response_model=UserResponse)
 async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
     """註冊新用戶"""
-    # Check if email already exists
-    result = await db.execute(select(User).where(User.email == user_data.email))
+    # Check if username already exists
+    result = await db.execute(select(User).where(User.username == user_data.username))
     existing_user = result.scalar_one_or_none()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered",
+            detail="Username already taken",
         )
 
     # Create new user
     hashed_password = get_password_hash(user_data.password)
     new_user = User(
-        email=user_data.email,
+        username=user_data.username,
         hashed_password=hashed_password,
     )
     db.add(new_user)
@@ -59,7 +59,7 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
 
     return UserResponse(
         id=str(new_user.id),
-        email=new_user.email,
+        username=new_user.username,
         created_at=new_user.created_at.isoformat(),
     )
 
@@ -70,13 +70,13 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     """登入並取得 JWT token"""
-    result = await db.execute(select(User).where(User.email == form_data.username))
+    result = await db.execute(select(User).where(User.username == form_data.username))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -89,6 +89,6 @@ async def get_me(current_user: User = Depends(get_current_user)):
     """取得當前用戶資訊"""
     return UserResponse(
         id=str(current_user.id),
-        email=current_user.email,
+        username=current_user.username,
         created_at=current_user.created_at.isoformat(),
     )

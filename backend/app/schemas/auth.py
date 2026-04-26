@@ -1,13 +1,13 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class UserRegister(BaseModel):
-    email: EmailStr
+    username: str
     password: str
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    username: str
     password: str
 
 
@@ -22,7 +22,7 @@ class TokenData(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
-    email: str
+    username: str
     created_at: str
 
     model_config = {"from_attributes": True}

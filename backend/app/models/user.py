@@ -18,10 +18,16 @@ class User(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
+    username: Mapped[str] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
     email: Mapped[str] = mapped_column(
         String(255),
         unique=True,
-        nullable=False,
+        nullable=True,
         index=True,
     )
     hashed_password: Mapped[str] = mapped_column(

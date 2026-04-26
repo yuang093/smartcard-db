@@ -50,10 +50,10 @@ export async function apiRequest<T>(
 
 // Auth API
 export const authApi = {
-  register: (email: string, password: string) =>
+  register: (username: string, password: string) =>
     apiRequest('/api/v1/auth/register', {
       method: 'POST',
-      body: { email, password },
+      body: { username, password },
     }),
 
   login: (username: string, password: string) =>
@@ -64,7 +64,7 @@ export const authApi = {
     }),
 
   getMe: () =>
-    apiRequest<{ id: string; email: string; created_at: string }>('/api/v1/auth/me'),
+    apiRequest<{ id: string; username: string; created_at: string }>('/api/v1/auth/me'),
 };
 
 // Cards API
