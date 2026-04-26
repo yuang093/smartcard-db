@@ -121,6 +121,38 @@ export default function CardsPage() {
     router.push('/login');
   };
 
+  const handleExport = async () => {
+    try {
+      // Get token from localStorage
+      const auth = localStorage.getItem('smartcard_auth');
+      const token = auth ? JSON.parse(auth).token : '';
+      
+      const response = await fetch('/api/v1/exports/export', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('匯出失敗');
+      }
+      
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cards_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('匯出失敗，請稍後再試');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -145,6 +177,12 @@ export default function CardsPage() {
               className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
             >
               標籤管理
+            </button>
+            <button
+              onClick={handleExport}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+            >
+              匯出 Excel
             </button>
             <button
               onClick={handleLogout}
