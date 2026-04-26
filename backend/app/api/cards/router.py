@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
@@ -51,14 +52,60 @@ async def create_card(
     current_user: User = Depends(get_current_user),
 ):
     """新增名片"""
-    new_card = Card(
-        user_id=current_user.id,
-        **card_data.model_dump(exclude_unset=True),
-    )
-    db.add(new_card)
-    await db.commit()
-    await db.refresh(new_card)
-    return _card_to_response(new_card)
+    try:
+        # Build card data explicitly
+        card_dict = card_data.model_dump(exclude_unset=True)
+        now = datetime.utcnow()
+        new_id = uuid.uuid4()
+        
+        new_card = Card(
+            id=new_id,
+            user_id=current_user.id,
+            name=card_dict.get('name'),
+            company=card_dict.get('company'),
+            title=card_dict.get('title'),
+            phone=card_dict.get('phone'),
+            mobile=card_dict.get('mobile'),
+            email=card_dict.get('email'),
+            address=card_dict.get('address'),
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(new_card)
+        await db.commit()
+        await db.refresh(new_card)
+        
+        # Return response without accessing relationships (avoids lazy load issues)
+        return CardResponse(
+            id=str(new_id),
+            user_id=str(current_user.id),
+            name=card_dict.get('name'),
+            company=card_dict.get('company'),
+            title=card_dict.get('title'),
+            phone=card_dict.get('phone'),
+            mobile=card_dict.get('mobile'),
+            email=card_dict.get('email'),
+            address=card_dict.get('address'),
+            front_image_url=None,
+            back_image_url=None,
+            created_at=now,
+            updated_at=now,
+            tags=[],
+        )
+    except Exception as e:
+        await db.rollback()
+        error_msg = str(e).lower()
+        if 'unique' in error_msg or 'duplicate' in error_msg or 'uq_card' in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="此名片資料已存在（相同姓名+公司）",
+            )
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="儲存失敗",
+        )
 
 
 @router.get("/{card_id}", response_model=CardResponse)
@@ -168,7 +215,12 @@ async def _get_card_or_404(card_id: str, user_id: uuid.UUID, db: AsyncSession) -
 
 
 def _card_to_response(card: Card) -> CardResponse:
-    tags = [TagSimple(id=str(ct.tag.id), name=ct.tag.name, color=ct.tag.color) for ct in card.tags]
+    # Safely handle tags that might not be loaded
+    tags = []
+    if card.tags:
+        for ct in card.tags:
+            if ct.tag:
+                tags.append(TagSimple(id=str(ct.tag.id), name=ct.tag.name, color=ct.tag.color))
     return CardResponse(
         id=str(card.id),
         user_id=str(card.user_id),

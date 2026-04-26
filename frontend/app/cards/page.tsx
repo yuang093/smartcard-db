@@ -139,12 +139,20 @@ export default function CardsPage() {
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">名片管理</h1>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-          >
-            登出
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={() => router.push('/tags')}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+            >
+              標籤管理
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            >
+              登出
+            </button>
+          </div>
         </div>
       </header>
 
