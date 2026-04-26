@@ -23,8 +23,9 @@ export default function LoginPage() {
       // Login to get token
       const tokenResponse = await authApi.login(username, password);
       
-      // Get user info
-      const user = await authApi.getMe();
+      // Get user info - note: this uses the token from login response
+      // The token isn't in localStorage yet, so getMe needs to get it differently
+      const user = await authApi.getMeWithToken(tokenResponse.access_token);
       
       // Save auth state
       login(tokenResponse.access_token, user);
