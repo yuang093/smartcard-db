@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { cardsApi, Card, DuplicateWarning } from '@/lib/api';
+import { tagsApi } from '@/lib/api';
 
 export default function CardsPage() {
   const { isAuthenticated, loading, logout } = useAuth();
@@ -16,6 +17,20 @@ export default function CardsPage() {
   const [duplicates, setDuplicates] = useState<DuplicateWarning[]>([]);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [pendingCard, setPendingCard] = useState<Partial<Card> | null>(null);
+  const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
+
+  // Fetch all tags for the selector
+  useEffect(() => {
+    async function fetchTags() {
+      try {
+        const tags = await tagsApi.list();
+        setAllTags(tags);
+      } catch (e) {
+        console.error('Failed to fetch tags', e);
+      }
+    }
+    fetchTags();
+  }, []);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -26,6 +41,7 @@ export default function CardsPage() {
     mobile: '',
     email: '',
     address: '',
+    tag_ids: [] as string[],
   });
 
   useEffect(() => {
@@ -380,6 +396,33 @@ export default function CardsPage() {
                   className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 />
               </div>
+              {/* 標籤選擇 */}
+              <div className="md:col-span-2">
+                <label className="block text-gray-700 text-sm font-bold mb-2">標籤</label>
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map((tag) => (
+                    <label key={tag.id} className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.tag_ids.includes(tag.id)}
+                        onChange={(e) => {
+                          const ids = e.target.checked
+                            ? [...formData.tag_ids, tag.id]
+                            : formData.tag_ids.filter((id) => id !== tag.id);
+                          setFormData({ ...formData, tag_ids: ids });
+                        }}
+                        className="rounded"
+                      />
+                      <span
+                        className="px-2 py-1 rounded-full text-xs"
+                        style={{ backgroundColor: tag.color + '30', color: tag.color }}
+                      >
+                        {tag.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="md:col-span-2 flex gap-4">
                 <button
                   type="submit"
@@ -399,14 +442,22 @@ export default function CardsPage() {
           </div>
         )}
 
-        {/* Add Button */}
+        {/* Add Button - 導向 AI 上傳頁面 */}
         {!showAddForm && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded mb-6"
-          >
-            + 新增名片
-          </button>
+          <div className="flex gap-4 mb-6">
+            <button
+              onClick={() => router.push('/cards/upload')}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded flex items-center gap-2"
+            >
+              📷 AI 辨識新增
+            </button>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded"
+            >
+              ✏️ 手動新增名片
+            </button>
+          </div>
         )}
 
         {/* Cards List */}

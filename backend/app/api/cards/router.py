@@ -6,17 +6,29 @@ from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 import aiofiles
 import os
+from pathlib import Path
 
 from app.core.database import get_db
 from app.core.config import settings
 from app.models.user import User
 from app.models.card import Card, CardTag
 from app.models.tag import Tag
-from app.schemas.card import CardCreate, CardUpdate, CardResponse, CardSimple
+from app.schemas.card import CardCreate, CardUpdate, CardResponse, CardSimple, CardUploadResponse, CardParsedResponse
 from app.schemas.tag import TagSimple
 from app.api.auth.router import get_current_user
+from app.services.minimax import parse_card_with_minimax
 
 router = APIRouter(prefix="/cards", tags=["cards"])
+
+# Absolute path inside container where uploaded files are stored
+UPLOAD_DIR = Path("/app/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _make_filename(user_id: str, side: str, ext: str) -> str:
+    """Generate unique filename: {user_id}_{side}_{timestamp}.{ext}"""
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+    return f"{user_id}_{side}_{ts}.{ext}"
 
 
 @router.get("", response_model=list[CardResponse])
@@ -79,6 +91,67 @@ async def check_duplicates(
     return duplicates
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Endpoint: Upload & AI Parse (Step 3.3 - AI OCR)
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.post("/upload_and_parse", response_model=CardUploadResponse)
+async def upload_and_parse(
+    front: UploadFile = File(..., description="名片正面圖檔"),
+    back: UploadFile | None = File(None, description="名片背面圖檔 (可選)"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    1. Receive front (and optionally back) card images.
+    2. Save them to /app/uploads with unique filenames.
+    3. Call MiniMax Vision API to extract structured JSON.
+    4. Return image paths + parsed data for human review.
+       (NO database write at this stage.)
+    """
+    saved_paths: list[str] = []
+    front_url: str | None = None
+    back_url: str | None = None
+
+    # ── Save front image ──────────────────────────────────────
+    front_ext = Path(front.filename or "front.jpg").suffix.lstrip(".") or "jpg"
+    front_name = _make_filename(str(current_user.id), "front", front_ext)
+    front_path = UPLOAD_DIR / front_name
+    async with aiofiles.open(front_path, "wb") as f:
+        content = await front.read()
+        await f.write(content)
+    saved_paths.append(str(front_path))
+    front_url = f"uploads/{front_name}"
+
+    # ── Save back image (if provided) ──────────────────────────
+    if back and back.filename:
+        back_ext = Path(back.filename or "back.jpg").suffix.lstrip(".") or "jpg"
+        back_name = _make_filename(str(current_user.id), "back", back_ext)
+        back_path = UPLOAD_DIR / back_name
+        async with aiofiles.open(back_path, "wb") as f:
+            content = await back.read()
+            await f.write(content)
+        saved_paths.append(str(back_path))
+        back_url = f"uploads/{back_name}"
+
+    # ── Call MiniMax Vision API ────────────────────────────────
+    try:
+        parsed = await parse_card_with_minimax(saved_paths)
+    except Exception as e:
+        parsed = {
+            "name": None, "company": None, "title": None,
+            "phone": None, "mobile": None, "email": None,
+            "address": None, "suggested_tags": [],
+            "_parse_error": str(e),
+        }
+
+    return CardUploadResponse(
+        front_image_url=front_url,
+        back_image_url=back_url,
+        parsed=CardParsedResponse(**parsed),
+    )
+
+
 @router.post("", response_model=CardResponse)
 async def create_card(
     card_data: CardCreate,
@@ -105,7 +178,12 @@ async def create_card(
             created_at=now,
             updated_at=now,
         )
-        db.add(new_card)
+        # Add tags if provided
+        tag_ids = card_dict.get('tag_ids', [])
+        for tag_id in tag_ids:
+            card_tag = CardTag(card_id=new_id, tag_id=tag_id)
+            db.add(card_tag)
+        
         await db.commit()
         await db.refresh(new_card)
         

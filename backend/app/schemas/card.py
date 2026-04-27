@@ -3,6 +3,24 @@ from datetime import datetime
 from typing import Optional
 
 
+class CardParsedResponse(BaseModel):
+    name: Optional[str] = None
+    company: Optional[str] = None
+    title: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    suggested_tags: list[str] = []
+    _parse_error: Optional[str] = None
+
+
+class CardUploadResponse(BaseModel):
+    front_image_url: Optional[str] = None
+    back_image_url: Optional[str] = None
+    parsed: CardParsedResponse
+
+
 class CardBase(BaseModel):
     name: Optional[str] = None
     company: Optional[str] = None
@@ -14,7 +32,7 @@ class CardBase(BaseModel):
 
 
 class CardCreate(CardBase):
-    pass
+    tag_ids: list[str] = []
 
 
 class CardUpdate(CardBase):

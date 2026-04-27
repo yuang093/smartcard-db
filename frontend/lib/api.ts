@@ -1,5 +1,23 @@
 const API_BASE_URL = '';
 
+export function clearToken() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('smartcard_auth');
+    console.debug('[Auth] Token cleared from localStorage');
+  }
+}
+
+export function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const auth = localStorage.getItem('smartcard_auth');
+  if (!auth) return null;
+  try {
+    return JSON.parse(auth).token;
+  } catch {
+    return null;
+  }
+}
+
 interface RequestOptions {
   method?: string;
   body?: unknown;
@@ -169,4 +187,21 @@ export const tagsApi = {
     apiRequest<{ message: string }>(`/api/v1/tags/${id}`, {
       method: 'DELETE',
     }),
+};
+
+// Default export for backward compatibility with code that uses `import api from "@/lib/api"`
+export default {
+  get: <T>(url: string) => apiRequest<T>(url),
+  post: async <T>(url: string, body: unknown) => {
+    try {
+      return await apiRequest<T>(url, { method: 'POST', body });
+    } catch (err) {
+      // Re-throw with a structured error format for backward compatibility
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(msg);
+    }
+  },
+  put: <T>(url: string, body: unknown) => apiRequest<T>(url, { method: 'PUT', body }),
+  delete: <T>(url: string) => apiRequest<T>(url, { method: 'DELETE' }),
+  postForm: <T>(url: string, body: unknown) => apiRequest<T>(url, { method: 'POST', body }),
 };
