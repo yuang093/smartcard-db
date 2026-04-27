@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.1] - 2026-04-28
+
+### Changed
+- 新增名片流程：統一使用 AI 辨識上傳，移除手動新增按鈕
+
+### Fixed
+- Cloudflare Tunnel Token 已設定，網站正常對外服務
+
 ## [v1.1.0] - 2026-04-28
 
 ### Added

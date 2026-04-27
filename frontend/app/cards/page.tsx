@@ -442,20 +442,14 @@ export default function CardsPage() {
           </div>
         )}
 
-        {/* Add Button - 導向 AI 上傳頁面 */}
+        {/* Add Button - AI 上傳優先 */}
         {!showAddForm && (
-          <div className="flex gap-4 mb-6">
+          <div className="mb-6">
             <button
               onClick={() => router.push('/cards/upload')}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded flex items-center gap-2"
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded flex items-center gap-2 mx-auto"
             >
-              📷 AI 辨識新增
-            </button>
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded"
-            >
-              ✏️ 手動新增名片
+              📷 新增名片（AI 辨識）
             </button>
           </div>
         )}

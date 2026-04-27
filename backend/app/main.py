@@ -6,6 +6,7 @@ from app.api.auth.router import router as auth_router
 from app.api.cards.router import router as cards_router
 from app.api.cards.export import router as cards_export_router
 from app.api.tags.router import router as tags_router
+from app.api.upload.router import router as upload_router
 
 
 def create_app() -> FastAPI:
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     app.include_router(cards_router, prefix="/api/v1")
     app.include_router(cards_export_router, prefix="/api/v1/exports")
     app.include_router(tags_router, prefix="/api/v1")
+    app.include_router(upload_router, prefix="/api/v1")
 
     return app
 
