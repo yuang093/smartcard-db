@@ -186,10 +186,11 @@ export default function CardsPage() {
   };
 
   const handleViewDetail = (card: Card) => {
-    console.log('[DEBUG] handleViewDetail called, card:', card.id);
+    console.log('[DEBUG] handleViewDetail called', card.id);
     setDetailCard(card);
     setShowDetailModal(true);
     setCopySuccess(null);
+    alert('Modal 即将打开，名片：' + (card.name || card.id));
   };
 
   const handleDelete = async (id: string) => {
@@ -566,8 +567,12 @@ export default function CardsPage() {
 
         {/* Detail Modal */}
         {showDetailModal && detailCard && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowDetailModal(false); }}>
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+          <div
+            className="fixed bg-black bg-opacity-50 z-50 p-4"
+            style={{ inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowDetailModal(false); }}
+          >
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ margin: 'auto' }}>
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold text-gray-900">名片詳情</h2>
