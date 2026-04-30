@@ -160,12 +160,10 @@ async def create_card(
 ):
     """新增名片"""
     try:
-        # Build card data explicitly
-        card_dict = card_data.model_dump(exclude_unset=True)
         now = datetime.utcnow()
         new_id = uuid.uuid4()
         
-        # ✅ 改進：正確讀取所有字段，包括圖片 URLs
+        # ✅ 先將 Card 加入 session（順序很重要！）
         new_card = Card(
             id=new_id,
             user_id=current_user.id,
@@ -176,19 +174,19 @@ async def create_card(
             mobile=card_dict.get('mobile'),
             email=card_dict.get('email'),
             address=card_dict.get('address'),
-            # ✅ 修復：正確讀取圖片 URLs 而不是硬編碼為 None
             front_image_url=card_dict.get('front_image_url'),
             back_image_url=card_dict.get('back_image_url'),
             created_at=now,
             updated_at=now,
         )
+        db.add(new_card)  # ← 確保 Card 在所有 related objects 之前被加入
+        
         # Add tags if provided
         tag_ids = card_dict.get('tag_ids', [])
         for tag_id in tag_ids:
             card_tag = CardTag(card_id=new_id, tag_id=tag_id)
             db.add(card_tag)
         
-        db.add(new_card)  # ⭐ 關鍵：沒有這行卡片不會被保存！
         await db.commit()
         await db.refresh(new_card)
         
