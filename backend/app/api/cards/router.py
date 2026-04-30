@@ -165,6 +165,7 @@ async def create_card(
         now = datetime.utcnow()
         new_id = uuid.uuid4()
         
+        # ✅ 改進：正確讀取所有字段，包括圖片 URLs
         new_card = Card(
             id=new_id,
             user_id=current_user.id,
@@ -175,6 +176,9 @@ async def create_card(
             mobile=card_dict.get('mobile'),
             email=card_dict.get('email'),
             address=card_dict.get('address'),
+            # ✅ 修復：正確讀取圖片 URLs 而不是硬編碼為 None
+            front_image_url=card_dict.get('front_image_url'),
+            back_image_url=card_dict.get('back_image_url'),
             created_at=now,
             updated_at=now,
         )
@@ -198,19 +202,21 @@ async def create_card(
             mobile=card_dict.get('mobile'),
             email=card_dict.get('email'),
             address=card_dict.get('address'),
-            front_image_url=None,
-            back_image_url=None,
+            front_image_url=card_dict.get('front_image_url'),
+            back_image_url=card_dict.get('back_image_url'),
             created_at=now,
             updated_at=now,
             tags=[],
         )
-    except Exception as e:
+    except ValueError as e:
         await db.rollback()
         import traceback
-        traceback.print_exc()
+        error_detail = traceback.format_exc()
+        print(f"Card creation error: {error_detail}")
+        print(f"Card data: {card_dict}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="儲存失敗",
+            detail=f"儲存失敗：{str(e)}",
         )
 
 

@@ -32,6 +32,9 @@ class CardBase(BaseModel):
 
 
 class CardCreate(CardBase):
+    # ✅ 新增：接收前端發送的圖片 URLs
+    front_image_url: Optional[str] = None
+    back_image_url: Optional[str] = None
     tag_ids: list[str] = []
 
 
