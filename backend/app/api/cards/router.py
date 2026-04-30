@@ -188,6 +188,7 @@ async def create_card(
             card_tag = CardTag(card_id=new_id, tag_id=tag_id)
             db.add(card_tag)
         
+        db.add(new_card)  # ⭐ 關鍵：沒有這行卡片不會被保存！
         await db.commit()
         await db.refresh(new_card)
         
