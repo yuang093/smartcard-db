@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from app.core.config import settings
 from app.api.auth.router import router as auth_router
@@ -39,6 +41,11 @@ def create_app() -> FastAPI:
     app.include_router(cards_export_router, prefix="/api/v1/exports")
     app.include_router(tags_router, prefix="/api/v1")
     app.include_router(upload_router, prefix="/api/v1")
+
+    # Mount static files for card images (uploads directory)
+    uploads_dir = Path("/app/uploads")
+    if uploads_dir.exists():
+        app.mount("/api/v1/static", StaticFiles(directory=str(uploads_dir)), name="static")
 
     return app
 

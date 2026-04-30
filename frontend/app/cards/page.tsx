@@ -17,6 +17,9 @@ export default function CardsPage() {
   const [duplicates, setDuplicates] = useState<DuplicateWarning[]>([]);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [pendingCard, setPendingCard] = useState<Partial<Card> | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailCard, setDetailCard] = useState<Card | null>(null);
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
 
   // Fetch all tags for the selector
@@ -66,6 +69,13 @@ export default function CardsPage() {
     } finally {
       setLoadingCards(false);
     }
+  };
+
+  const handleCopy = (text: string, type: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopySuccess(type);
+      setTimeout(() => setCopySuccess(null), 2000);
+    });
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -172,6 +182,11 @@ export default function CardsPage() {
     });
     setEditingCard(card);
     setShowAddForm(true);
+  };
+
+  const handleViewDetail = (card: Card) => {
+    setDetailCard(card);
+    setShowDetailModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -475,6 +490,12 @@ export default function CardsPage() {
                       vCard
                     </button>
                     <button
+                      onClick={() => handleViewDetail(card)}
+                      className="text-purple-600 hover:text-purple-800 text-sm"
+                    >
+                      詳情
+                    </button>
+                    <button
                       onClick={() => handleEdit(card)}
                       className="text-blue-600 hover:text-blue-800 text-sm"
                     >
@@ -535,6 +556,119 @@ export default function CardsPage() {
                 >
                   Add Anyway
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Detail Modal */}
+        {showDetailModal && detailCard && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900">名片詳情</h2>
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {/* 圖片顯示 */}
+                {(detailCard.front_image_url || detailCard.back_image_url) && (
+                  <div className="mb-4 flex gap-4 flex-wrap">
+                    {detailCard.front_image_url && (
+                      <div className="flex-1 min-w-[120px]">
+                        <p className="text-sm font-medium text-gray-700 mb-1">正面</p>
+                        <img
+                          src={`/api/v1/static/${detailCard.front_image_url}`}
+                          alt="名片正面"
+                          className="w-full border rounded-lg"
+                        />
+                      </div>
+                    )}
+                    {detailCard.back_image_url && (
+                      <div className="flex-1 min-w-[120px]">
+                        <p className="text-sm font-medium text-gray-700 mb-1">背面</p>
+                        <img
+                          src={`/api/v1/static/${detailCard.back_image_url}`}
+                          alt="名片背面"
+                          className="w-full border rounded-lg"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 基本資訊 */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-gray-900">{detailCard.name || '(未填寫)'}</span>
+                  </div>
+                  {(detailCard.company || detailCard.title) && (
+                    <p className="text-gray-600">
+                      {detailCard.company || ''} {detailCard.title ? `| ${detailCard.title}` : ''}
+                    </p>
+                  )}
+                </div>
+
+                {/* 聯絡方式 */}
+                <div className="mt-4 space-y-2">
+                  {(detailCard.phone || detailCard.mobile) && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500">☎</span>
+                      <span className="text-gray-800">{detailCard.phone || ''}</span>
+                      {detailCard.mobile && <span className="text-gray-500">| 📱 {detailCard.mobile}</span>}
+                      {(detailCard.phone || detailCard.mobile) && (
+                        <button
+                          onClick={() => handleCopy((detailCard.phone || '') + (detailCard.mobile ? ' ' + detailCard.mobile : ''), 'phone')}
+                          className="ml-auto text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
+                        >
+                          {copySuccess === 'phone' ? '✅ 已複製' : '複製電話'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {detailCard.email && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500">✉</span>
+                      <span className="text-gray-800">{detailCard.email}</span>
+                      <button
+                        onClick={() => handleCopy(detailCard.email!, 'email')}
+                        className="ml-auto text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
+                      >
+                        {copySuccess === 'email' ? '✅ 已複製' : '複製Email'}
+                      </button>
+                    </div>
+                  )}
+                  {detailCard.address && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500">📍</span>
+                      <span className="text-gray-800">{detailCard.address}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 底部按鈕 */}
+                <div className="mt-6 flex gap-3 justify-end">
+                  <button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      handleEdit(detailCard);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition-colors"
+                  >
+                    編輯
+                  </button>
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded transition-colors"
+                  >
+                    關閉
+                  </button>
+                </div>
               </div>
             </div>
           </div>
