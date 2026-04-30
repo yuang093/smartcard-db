@@ -160,6 +160,7 @@ async def create_card(
 ):
     """新增名片"""
     try:
+        card_dict = card_data.model_dump(exclude_unset=True)
         now = datetime.utcnow()
         new_id = uuid.uuid4()
         
