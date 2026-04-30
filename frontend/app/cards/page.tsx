@@ -179,6 +179,7 @@ export default function CardsPage() {
       mobile: card.mobile || '',
       email: card.email || '',
       address: card.address || '',
+      tag_ids: card.tags?.map((t: { id: string }) => t.id) || [],
     });
     setEditingCard(card);
     setShowAddForm(true);
@@ -187,6 +188,7 @@ export default function CardsPage() {
   const handleViewDetail = (card: Card) => {
     setDetailCard(card);
     setShowDetailModal(true);
+    setCopySuccess(null);
   };
 
   const handleDelete = async (id: string) => {
