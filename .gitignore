@@ -39,11 +39,24 @@ out/
 *.swo
 .DS_Store
 
-# Local volumes (bind mounts)
-volumes/db_data/
-volumes/uploads/
-*.db
-*.sqlite
+# ───────────────────────────────────────────────────────────────
+# SmartCard DB specific
+# ───────────────────────────────────────────────────────────────
+
+# Local Docker volumes (bind mounts — do NOT commit)
+volumes/pg_data/
+volumes/pg_data_backup/
+volumes/pg_data_corrupted_*/
+backups/
+
+# ───────────────────────────────────────────────────────────────
+# Environment & Secrets
+# ───────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
 
 # Logs
 *.log

@@ -23,6 +23,7 @@ class TokenData(BaseModel):
 class UserResponse(BaseModel):
     id: str
     username: str
+    is_admin: bool = False
     created_at: str
 
     model_config = {"from_attributes": True}

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.0] - 2026-05-02
+
+### Added
+- **Phase 6: Admin System** — `/setup` 管理後台
+  - `/api/v1/admin/stats` — 系統統計 (卡片/用戶/標籤數)
+  - `/api/v1/admin/users` — 用戶管理 (CRUD + 設為管理員)
+  - `/api/v1/admin/backup/status` — 備份狀態查詢
+  - 帳戶管理：新增、刪除、設為管理員
+  - 備份腳本：`scripts/backup.sh` + `scripts/restore.sh`
+
+### Fixed
+- `.gitignore` — 正確排除 `volumes/pg_data/` 及其備份資料夾
+
 ## [v1.1.2] - 2026-05-01
 
 ### Fixed

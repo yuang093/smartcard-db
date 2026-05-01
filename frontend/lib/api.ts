@@ -99,10 +99,10 @@ export const authApi = {
     }),
 
   getMe: () =>
-    apiRequest<{ id: string; username: string; created_at: string }>('/api/v1/auth/me'),
+    apiRequest<{ id: string; username: string; is_admin: boolean; created_at: string }>('/api/v1/auth/me'),
 
   getMeWithToken: (token: string) =>
-    apiRequest<{ id: string; username: string; created_at: string }>('/api/v1/auth/me', {
+    apiRequest<{ id: string; username: string; is_admin: boolean; created_at: string }>('/api/v1/auth/me', {
       headers: { Authorization: `Bearer ${token}` },
     }),
 };

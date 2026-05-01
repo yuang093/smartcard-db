@@ -11,12 +11,25 @@ from pathlib import Path
 from app.core.database import get_db
 from app.core.config import settings
 from app.models.user import User
+from pydantic import BaseModel
+from typing import List
+
 from app.models.card import Card, CardTag
 from app.models.tag import Tag
 from app.schemas.card import CardCreate, CardUpdate, CardResponse, CardSimple, CardUploadResponse, CardParsedResponse
 from app.schemas.tag import TagSimple
 from app.api.auth.router import get_current_user
 from app.services.minimax import parse_card_with_minimax
+
+
+# ── Batch Request Schemas ─────────────────────────────────────────────────────
+class BatchDeleteRequest(BaseModel):
+    card_ids: List[str]
+
+
+class BatchTagsRequest(BaseModel):
+    card_ids: List[str]
+    tag_ids: List[str]
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -393,3 +406,126 @@ def _card_to_response(card: Card) -> CardResponse:
         updated_at=card.updated_at,
         tags=tags,
     )
+
+
+@router.post("/batch-delete")
+async def batch_delete_cards(
+    request: BatchDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """批次刪除名片"""
+    card_ids = request.card_ids
+    if not card_ids:
+        raise HTTPException(status_code=400, detail="No card IDs provided")
+    
+    # Verify all cards belong to current user
+    result = await db.execute(
+        select(Card).where(
+            Card.id.in_([uuid.UUID(id) for id in card_ids]),
+            Card.user_id == current_user.id
+        )
+    )
+    cards_to_delete = result.scalars().all()
+    
+    if len(cards_to_delete) != len(card_ids):
+        raise HTTPException(status_code=403, detail="Some cards do not belong to you")
+    
+    # Delete all cards (cascade will handle card_tags)
+    for card in cards_to_delete:
+        await db.delete(card)
+    
+    await db.commit()
+    return {"message": f"Deleted {len(cards_to_delete)} cards", "count": len(cards_to_delete)}
+
+
+@router.post("/batch-add-tags")
+async def batch_add_tags(
+    request: BatchTagsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """批次新增標籤到名片"""
+    card_ids = request.card_ids
+    tag_ids = request.tag_ids
+    if not card_ids or not tag_ids:
+        raise HTTPException(status_code=400, detail="card_ids and tag_ids are required")
+    
+    # Verify all cards belong to current user
+    result = await db.execute(
+        select(Card).where(
+            Card.id.in_([uuid.UUID(id) for id in card_ids]),
+            Card.user_id == current_user.id
+        )
+    )
+    cards = result.scalars().all()
+    
+    if len(cards) != len(card_ids):
+        raise HTTPException(status_code=403, detail="Some cards do not belong to you")
+    
+    # Verify all tags belong to current user
+    result = await db.execute(
+        select(Tag).where(
+            Tag.id.in_([uuid.UUID(id) for id in tag_ids]),
+            Tag.user_id == current_user.id
+        )
+    )
+    tags = result.scalars().all()
+    
+    if len(tags) != len(tag_ids):
+        raise HTTPException(status_code=403, detail="Some tags do not belong to you")
+    
+    # Add tags to cards
+    added_count = 0
+    for card in cards:
+        for tag in tags:
+            # Check if already exists
+            existing = await db.execute(
+                select(CardTag).where(
+                    CardTag.card_id == card.id,
+                    CardTag.tag_id == tag.id
+                )
+            )
+            if not existing.scalar_one_or_none():
+                db.add(CardTag(card_id=card.id, tag_id=tag.id))
+                added_count += 1
+    
+    await db.commit()
+    return {"message": f"Added {added_count} tag-card associations", "count": added_count}
+
+
+@router.post("/batch-remove-tags")
+async def batch_remove_tags(
+    request: BatchTagsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """批次從名片移除標籤"""
+    card_ids = request.card_ids
+    tag_ids = request.tag_ids
+    if not card_ids or not tag_ids:
+        raise HTTPException(status_code=400, detail="card_ids and tag_ids are required")
+    
+    # Verify all cards belong to current user
+    result = await db.execute(
+        select(Card).where(
+            Card.id.in_([uuid.UUID(id) for id in card_ids]),
+            Card.user_id == current_user.id
+        )
+    )
+    cards = result.scalars().all()
+    
+    if len(cards) != len(card_ids):
+        raise HTTPException(status_code=403, detail="Some cards do not belong to you")
+    
+    # Remove tags from cards
+    await db.execute(
+        delete(CardTag).where(
+            CardTag.card_id.in_([uuid.UUID(id) for id in card_ids]),
+            CardTag.tag_id.in_([uuid.UUID(id) for id in tag_ids])
+        )
+    )
+    
+    await db.commit()
+    return {"message": "Removed tags from cards", "count": len(card_ids)}
+

@@ -23,6 +23,8 @@ export default function CardsPage() {
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>('');
+  const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
+  const [showBatchBar, setShowBatchBar] = useState(false);
 
   // Fetch all tags for the selector
   useEffect(() => {
@@ -67,6 +69,8 @@ export default function CardsPage() {
       setLoadingCards(true);
       const data = await cardsApi.list(search || undefined, selectedTagFilter || undefined);
       setCards(data);
+      setSelectedCards(new Set()); // Clear batch selection on reload
+      setShowBatchBar(false);
     } catch (err) {
       console.error('Failed to load cards:', err);
     } finally {
@@ -305,25 +309,25 @@ export default function CardsPage() {
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">名片管理</h1>
-          <div className="flex gap-4">
+        <div className="max-w-7xl mx-auto py-4 px-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">名片管理</h1>
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
             <button
               onClick={() => router.push('/tags')}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 sm:px-4 rounded text-sm sm:text-base w-full sm:w-auto"
             >
               標籤管理
             </button>
             <button
               onClick={handleExport}
               disabled={exporting}
-              className={`font-bold py-2 px-4 rounded ${exporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+              className={`font-bold py-2 px-3 sm:px-4 rounded text-sm sm:text-base w-full sm:w-auto ${exporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
             >
               {exporting ? '匯出中...' : '匯出 Excel'}
             </button>
             <button
               onClick={handleLogout}
-              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-3 sm:px-4 rounded text-sm sm:text-base w-full sm:w-auto"
             >
               登出
             </button>
@@ -496,6 +500,115 @@ export default function CardsPage() {
           </div>
         )}
 
+        {/* Batch Action Bar */}
+        {showBatchBar && selectedCards.size > 0 && (
+          <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 sm:p-4 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-blue-800">已選擇 {selectedCards.size} 張名片</span>
+                <button
+                  onClick={() => {
+                    setSelectedCards(new Set());
+                    setShowBatchBar(false);
+                  }}
+                  className="text-blue-600 hover:text-blue-800 text-sm underline"
+                >
+                  取消選擇
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+              {/* Batch Add Tags */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
+                <span className="text-sm text-gray-700 whitespace-nowrap">新增標籤：</span>
+                <select
+                  id="batch-add-tag"
+                  className="border rounded px-2 py-1 text-sm w-full sm:w-auto min-w-[120px]"
+                  defaultValue=""
+                >
+                  <option value="">選擇標籤</option>
+                  {allTags.map((tag) => (
+                    <option key={tag.id} value={tag.id}>{tag.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={async () => {
+                    const selectEl = document.getElementById('batch-add-tag') as HTMLSelectElement;
+                    const tagId = selectEl?.value;
+                    if (!tagId) return;
+                    try {
+                      await fetch('/api/v1/cards/batch-add-tags', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('smartcard_auth') ? JSON.parse(localStorage.getItem('smartcard_auth')!).token : ''}` },
+                        body: JSON.stringify({ card_ids: Array.from(selectedCards), tag_ids: [tagId] }),
+                      });
+                      loadCards();
+                    } catch (err) {
+                      console.error('Batch add tags failed:', err);
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded w-full sm:w-auto"
+                >
+                  套用
+                </button>
+              </div>
+              {/* Batch Remove Tags */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
+                <span className="text-sm text-gray-700 whitespace-nowrap">移除標籤：</span>
+                <select
+                  id="batch-remove-tag"
+                  className="border rounded px-2 py-1 text-sm w-full sm:w-auto min-w-[120px]"
+                  defaultValue=""
+                >
+                  <option value="">選擇標籤</option>
+                  {allTags.map((tag) => (
+                    <option key={tag.id} value={tag.id}>{tag.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={async () => {
+                    const selectEl = document.getElementById('batch-remove-tag') as HTMLSelectElement;
+                    const tagId = selectEl?.value;
+                    if (!tagId) return;
+                    try {
+                      await fetch('/api/v1/cards/batch-remove-tags', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('smartcard_auth') ? JSON.parse(localStorage.getItem('smartcard_auth')!).token : ''}` },
+                        body: JSON.stringify({ card_ids: Array.from(selectedCards), tag_ids: [tagId] }),
+                      });
+                      loadCards();
+                    } catch (err) {
+                      console.error('Batch remove tags failed:', err);
+                    }
+                  }}
+                  className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-3 py-1 rounded w-full sm:w-auto"
+                >
+                  套用
+                </button>
+              </div>
+              {/* Batch Delete */}
+              <button
+                onClick={async () => {
+                  if (!confirm(`確定要刪除選定的 ${selectedCards.size} 張名片嗎？此操作無法復原。`)) return;
+                  try {
+                    await fetch('/api/v1/cards/batch-delete', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('smartcard_auth') ? JSON.parse(localStorage.getItem('smartcard_auth')!).token : ''}` },
+                      body: JSON.stringify({ card_ids: Array.from(selectedCards) }),
+                    });
+                    loadCards();
+                  } catch (err) {
+                    console.error('Batch delete failed:', err);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded w-full sm:w-auto"
+              >
+                🗑️ 批次刪除
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Add Button - AI 上傳優先 */}
         {!showAddForm && (
           <div className="mb-6">
@@ -518,8 +631,26 @@ export default function CardsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map((card) => (
-              <div key={card.id} className="bg-white rounded-lg shadow p-4">
-                <div className="flex justify-between items-start mb-2">
+              <div key={card.id} className={`bg-white rounded-lg shadow p-4 relative ${selectedCards.has(card.id) ? 'ring-4 ring-blue-500' : ''}`}>
+                {/* Checkbox for batch selection */}
+                <div className="absolute top-2 left-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedCards.has(card.id)}
+                    onChange={() => {
+                      const newSelected = new Set(selectedCards);
+                      if (newSelected.has(card.id)) {
+                        newSelected.delete(card.id);
+                      } else {
+                        newSelected.add(card.id);
+                      }
+                      setSelectedCards(newSelected);
+                      setShowBatchBar(newSelected.size > 0);
+                    }}
+                    className="w-5 h-5 rounded cursor-pointer"
+                  />
+                </div>
+                <div className="flex justify-between items-start mb-2 pl-8">
                   <h3 className="text-xl font-bold text-gray-900">{card.name || '(未填寫)'}</h3>
                   <div className="flex gap-2 flex-wrap">
                     <button
@@ -607,7 +738,7 @@ export default function CardsPage() {
             style={{ inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={(e) => { if (e.target === e.currentTarget) setShowDetailModal(false); }}
           >
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ margin: 'auto' }}>
+            <div className="bg-white rounded-lg shadow-xl w-full max-h-[90vh] overflow-y-auto mx-2 sm:mx-auto" style={{ margin: 'auto' }}>
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold text-gray-900">名片詳情</h2>
