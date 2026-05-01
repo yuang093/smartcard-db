@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, delete
 from sqlalchemy.orm import selectinload
 import aiofiles
 import os
@@ -240,8 +240,30 @@ async def update_card(
 ):
     """更新名片"""
     card = await _get_card_or_404(card_id, current_user.id, db)
-    for key, value in card_data.model_dump(exclude_unset=True).items():
-        setattr(card, key, value)
+    card_dict = card_data.model_dump(exclude_unset=True)
+    
+    # Handle tag_ids separately (replace all existing tags)
+    tag_ids = card_dict.pop('tag_ids', None)
+    
+    # Update other fields
+    for key, value in card_dict.items():
+        if key not in ('id', 'user_id', 'created_at'):
+            setattr(card, key, value)
+    
+    # Always update updated_at
+    card.updated_at = datetime.utcnow()
+    
+    # Update tags if provided (even if empty list means clear all tags)
+    if tag_ids is not None:
+        # Remove all existing tags for this card (convert string to UUID)
+        await db.execute(
+            delete(CardTag).where(CardTag.card_id == card.id)
+        )
+        # Add new tags
+        for tag_id in tag_ids:
+            card_tag = CardTag(card_id=card.id, tag_id=uuid.UUID(tag_id))
+            db.add(card_tag)
+    
     await db.commit()
     await db.refresh(card)
     return _card_to_response(card)
