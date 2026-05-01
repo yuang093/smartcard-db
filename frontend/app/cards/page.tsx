@@ -190,7 +190,6 @@ export default function CardsPage() {
     setDetailCard(card);
     setShowDetailModal(true);
     setCopySuccess(null);
-    alert('Modal 即将打开，名片：' + (card.name || card.id));
   };
 
   const handleDelete = async (id: string) => {
