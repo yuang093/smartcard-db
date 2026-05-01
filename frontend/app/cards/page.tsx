@@ -593,7 +593,7 @@ export default function CardsPage() {
                       <div className="flex-1 min-w-[120px]">
                         <p className="text-sm font-medium text-gray-700 mb-1">正面</p>
                         <img
-                          src={`/api/v1/static/${detailCard.front_image_url.replace(/^blob:.*\//, "")}`}
+                          src={`/api/v1/static/${detailCard.front_image_url.replace(/^\/?uploads\//, "").replace(/^blob:.*\//, "")}`}
                           alt="名片正面"
                           className="w-full border rounded-lg"
                         />
@@ -603,7 +603,7 @@ export default function CardsPage() {
                       <div className="flex-1 min-w-[120px]">
                         <p className="text-sm font-medium text-gray-700 mb-1">背面</p>
                         <img
-                          src={`/api/v1/static/${detailCard.back_image_url.replace(/^blob:.*\//, "")}`}
+                          src={`/api/v1/static/${detailCard.back_image_url.replace(/^\/?uploads\//, "").replace(/^blob:.*\//, "")}`}
                           alt="名片背面"
                           className="w-full border rounded-lg"
                         />
