@@ -50,8 +50,9 @@ export default function ReviewPage() {
       setData(parsed);
       // Prefer local object URL (instant preview), fallback to server URL
       setImageUrls({
-        front: parsed._front_preview || parsed.front_image_url || "",
-        back: parsed._back_preview || parsed.back_image_url || "",
+        // ✅ 優先使用伺服器實際路徑，blob URL 只用於本機預覽
+        front: parsed.front_image_url || parsed._front_preview || "",
+        back: parsed.back_image_url || parsed._back_preview || "",
       });
       setForm({
         name: parsed.name || "",
