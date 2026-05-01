@@ -621,6 +621,21 @@ export default function CardsPage() {
                   )}
                 </div>
 
+                {/* 標籤顯示 */}
+                {detailCard.tags && detailCard.tags.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {detailCard.tags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="px-2 py-1 rounded-full text-xs font-medium"
+                        style={{ backgroundColor: tag.color + '30', color: tag.color }}
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {/* 聯絡方式 */}
                 <div className="mt-4 space-y-2">
                   {(detailCard.phone || detailCard.mobile) && (
