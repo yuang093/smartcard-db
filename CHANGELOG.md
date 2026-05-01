@@ -2,7 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v1.1.1] - 2026-04-28
+## [v1.1.2] - 2026-05-01
+
+### Fixed
+- 修補 `notes` 欄位：資料庫缺少 `notes` 欄位導致 500 錯誤 (`ALTER TABLE cards ADD COLUMN notes TEXT`)
+- 模型初始化：修正 `backend/app/models/__init__.py` 確保 SQLAlchemy 正確解析 Model 關聯
 
 ### Changed
 - 新增名片流程：統一使用 AI 辨識上傳，移除手動新增按鈕
