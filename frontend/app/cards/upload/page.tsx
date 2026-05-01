@@ -253,16 +253,6 @@ export default function UploadPage() {
 
         {/* Upload Card */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          {/* 放在最上面的上傳按鈕 */}
-          <button
-            type="button"
-            onClick={() => frontInputRef.current?.click()}
-            disabled={loading}
-            className="w-full py-3 px-6 rounded-xl font-semibold text-white transition-all mb-6 bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg active:scale-95"
-          >
-            📷 選擇名片圖片（可同時選正面+背面）
-          </button>
-
           <form onSubmit={handleSubmit} method="post">
             {/* Front Image */}
             <div className="mb-6">
@@ -374,7 +364,7 @@ export default function UploadPage() {
                   : "bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg active:scale-95"
               }`}
             >
-              {loading ? "AI 辨識中..." : "開始 AI 解析"}
+              {loading ? "AI 辨識中..." : "上傳並 AI 解析"}
             </button>
           </form>
         </div>
