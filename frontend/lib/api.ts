@@ -133,8 +133,13 @@ export interface DuplicateWarning {
 }
 
 export const cardsApi = {
-  list: (search?: string) =>
-    apiRequest<Card[]>(`/api/v1/cards${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  list: (search?: string, tagId?: string) => {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (tagId) params.append('tag_id', tagId);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      return apiRequest<Card[]>(`/api/v1/cards${query}`);
+    },
 
   get: (id: string) => apiRequest<Card>(`/api/v1/cards/${id}`),
 

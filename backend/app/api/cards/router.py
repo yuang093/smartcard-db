@@ -34,10 +34,11 @@ def _make_filename(user_id: str, side: str, ext: str) -> str:
 @router.get("", response_model=list[CardResponse])
 async def list_cards(
     search: str = Query(None, description="搜尋關鍵字"),
+    tag_id: str = Query(None, description="標籤過濾"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """列出當前用戶的所有名片"""
+    """列出當前用戶的所有名片（可依關鍵字或標籤過濾）"""
     query = select(Card).where(Card.user_id == current_user.id).options(selectinload(Card.tags).selectinload(CardTag.tag))
 
     if search:
@@ -48,6 +49,13 @@ async def list_cards(
                 Card.company.ilike(search_filter),
                 Card.email.ilike(search_filter),
                 Card.title.ilike(search_filter),
+            )
+        )
+
+    if tag_id:
+        query = query.where(
+            Card.id.in_(
+                select(CardTag.card_id).where(CardTag.tag_id == uuid.UUID(tag_id))
             )
         )
 

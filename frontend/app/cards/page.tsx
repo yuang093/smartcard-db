@@ -21,6 +21,7 @@ export default function CardsPage() {
   const [detailCard, setDetailCard] = useState<Card | null>(null);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string>('');
 
   // Fetch all tags for the selector
   useEffect(() => {
@@ -56,18 +57,28 @@ export default function CardsPage() {
   useEffect(() => {
     if (isAuthenticated) {
       loadCards();
+      loadAllTags();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedTagFilter]);
 
   const loadCards = async () => {
     try {
       setLoadingCards(true);
-      const data = await cardsApi.list(search || undefined);
+      const data = await cardsApi.list(search || undefined, selectedTagFilter || undefined);
       setCards(data);
     } catch (err) {
       console.error('Failed to load cards:', err);
     } finally {
       setLoadingCards(false);
+    }
+  };
+
+  const loadAllTags = async () => {
+    try {
+      const tags = await tagsApi.list();
+      setAllTags(tags);
+    } catch (err) {
+      console.error('Failed to load tags:', err);
     }
   };
 
@@ -337,6 +348,21 @@ export default function CardsPage() {
             >
               清除
             </button>
+            {allTags.length > 0 && (
+              <select
+                value={selectedTagFilter}
+                onChange={(e) => {
+                  setSelectedTagFilter(e.target.value);
+                  loadCards();
+                }}
+                className="shadow border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              >
+                <option value="">全部標籤</option>
+                {allTags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>{tag.name}</option>
+                ))}
+              </select>
+            )}
           </form>
         </div>
 
