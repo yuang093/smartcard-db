@@ -254,6 +254,15 @@ export default function UploadPage() {
         {/* Upload Card */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
           <form onSubmit={handleSubmit} method="post">
+            {/* 上傳按鈕移到 form 內的最上面 */}
+            <button
+              type="submit"
+              disabled={!frontFile || loading}
+              className="w-full py-3 px-6 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed mb-6"
+            >
+              {loading ? "AI 辨識中..." : "📷 上傳並 AI 解析"}
+            </button>
+
             {/* Front Image */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -354,18 +363,7 @@ export default function UploadPage() {
               </div>
             )}
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={!frontFile || loading}
-              className={`w-full py-3 px-6 rounded-xl font-semibold text-white transition-all ${
-                !frontFile || loading
-                  ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg active:scale-95"
-              }`}
-            >
-              {loading ? "AI 辨識中..." : "上傳並 AI 解析"}
-            </button>
+            {/* Submit - removed, done by top button */}
           </form>
         </div>
       </div>
