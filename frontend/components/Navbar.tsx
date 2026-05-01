@@ -3,9 +3,30 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearToken } from "@/lib/api";
+import { useEffect, useState } from "react";
 
 export default function Navbar() {
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    const auth = JSON.parse(localStorage.getItem('smartcard_auth') || '{}');
+    if (auth.token) {
+      // Fetch is_admin from /me endpoint
+      fetch('http://localhost:8000/api/v1/auth/me', {
+        headers: { 'Authorization': `Bearer ${auth.token}` }
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.is_admin) setIsAdmin(true);
+        })
+        .catch(() => {})
+        .finally(() => setChecked(true));
+    } else {
+      setChecked(true);
+    }
+  }, []);
 
   function handleLogout() {
     clearToken();
@@ -25,6 +46,14 @@ export default function Navbar() {
           >
             🏷️ 標籤
           </Link>
+          {checked && isAdmin && (
+            <Link
+              href="/setup"
+              className="text-sm bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1 rounded transition-colors"
+            >
+              ⚙️ 管理
+            </Link>
+          )}
         </div>
         <button
           onClick={handleLogout}
