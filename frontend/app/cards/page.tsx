@@ -194,6 +194,7 @@ export default function CardsPage() {
       mobile: card.mobile || '',
       email: card.email || '',
       address: card.address || '',
+      notes: (card as any).notes || '',
       tag_ids: card.tags?.map((t: { id: string }) => t.id) || [],
     });
     setEditingCard(card);
@@ -674,29 +675,27 @@ export default function CardsPage() {
                 {/* 聯絡方式 */}
                 <div className="mt-4 space-y-2">
                   {(detailCard.phone || detailCard.mobile) && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-gray-500">☎</span>
-                      <span className="text-gray-800">{detailCard.phone || ''}</span>
+                      {detailCard.phone && <a href={`tel:${detailCard.phone}`} className="text-blue-600 hover:underline">{detailCard.phone}</a>}
                       {detailCard.mobile && <span className="text-gray-500">| 📱 {detailCard.mobile}</span>}
-                      {(detailCard.phone || detailCard.mobile) && (
-                        <button
-                          onClick={() => handleCopy((detailCard.phone || '') + (detailCard.mobile ? ' ' + detailCard.mobile : ''), 'phone')}
-                          className="ml-auto text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
-                        >
-                          {copySuccess === 'phone' ? '✅ 已複製' : '複製電話'}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleCopy((detailCard.phone || '') + (detailCard.mobile ? ' ' + detailCard.mobile : ''), 'phone')}
+                        className="ml-2 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
+                      >
+                        {copySuccess === 'phone' ? '✅ 已複製' : '複製'}
+                      </button>
                     </div>
                   )}
                   {detailCard.email && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-gray-500">✉</span>
-                      <span className="text-gray-800">{detailCard.email}</span>
+                      <a href={`mailto:${detailCard.email}`} className="text-blue-600 hover:underline">{detailCard.email}</a>
                       <button
                         onClick={() => handleCopy(detailCard.email!, 'email')}
-                        className="ml-auto text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
+                        className="ml-2 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
                       >
-                        {copySuccess === 'email' ? '✅ 已複製' : '複製Email'}
+                        {copySuccess === 'email' ? '✅ 已複製' : '複製'}
                       </button>
                     </div>
                   )}
@@ -707,6 +706,14 @@ export default function CardsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* 備註 */}
+                {detailCard.notes && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm font-medium text-gray-700 mb-1">備註</p>
+                    <p className="text-gray-700 text-sm whitespace-pre-wrap">{detailCard.notes}</p>
+                  </div>
+                )}
 
                 {/* 底部按鈕 */}
                 <div className="mt-6 flex gap-3 justify-end">

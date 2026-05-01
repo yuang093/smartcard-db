@@ -74,6 +74,10 @@ class Card(Base):
         String(500),
         nullable=True,
     )
+    notes: Mapped[str] = mapped_column(
+        Text,
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=datetime.utcnow,

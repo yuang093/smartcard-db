@@ -29,6 +29,7 @@ class CardBase(BaseModel):
     mobile: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class CardCreate(CardBase):
