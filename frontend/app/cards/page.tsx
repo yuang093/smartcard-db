@@ -333,24 +333,24 @@ export default function CardsPage() {
       <main className="max-w-7xl mx-auto py-6 px-4">
         {/* Search Bar */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <form onSubmit={handleSearch} className="flex gap-4">
+          <form onSubmit={handleSearch} className="flex flex-wrap gap-2 sm:gap-4">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜尋姓名、公司、職稱..."
-              className="flex-1 shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="flex-1 min-w-[120px] shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             />
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 sm:px-4 rounded text-sm sm:text-base"
             >
               搜尋
             </button>
             <button
               type="button"
-              onClick={() => { setSearch(''); loadCards(); }}
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+              onClick={() => { setSearch(''); setSelectedTagFilter(''); loadCards(); }}
+              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-3 sm:px-4 rounded text-sm sm:text-base"
             >
               清除
             </button>
@@ -361,7 +361,7 @@ export default function CardsPage() {
                   setSelectedTagFilter(e.target.value);
                   loadCards();
                 }}
-                className="shadow border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="shadow border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm"
               >
                 <option value="">全部標籤</option>
                 {allTags.map((tag) => (
@@ -618,16 +618,16 @@ export default function CardsPage() {
                   </button>
                 </div>
 
-                {/* 工具函式：過濾 blob URL，只取檔案名稱 */}
+                {/* 圖片顯示 - 手機上顯示單欄 */}
                 {(detailCard.front_image_url || detailCard.back_image_url) && (
-                  <div className="mb-4 flex gap-4 flex-wrap">
+                  <div className="mb-4 flex flex-col sm:flex-row gap-4">
                     {detailCard.front_image_url && (
-                      <div className="flex-1 min-w-[120px]">
+                      <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-700 mb-1">正面</p>
                         <img
                           src={`/api/v1/static/${detailCard.front_image_url.replace(/^\/?uploads\//, "").replace(/^blob:.*\//, "")}`}
                           alt="名片正面"
-                          className="w-full border rounded-lg"
+                          className="w-full sm:max-w-[200px] border rounded-lg"
                         />
                       </div>
                     )}
