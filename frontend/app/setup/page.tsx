@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface SystemStats {
   total_cards: number;
@@ -38,6 +38,8 @@ export default function SetupPage() {
   const [newIsAdmin, setNewIsAdmin] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [editingPasswordUserId, setEditingPasswordUserId] = useState<string | null>(null);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
 
   const auth = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('smartcard_auth') || '{}') : {};
   const token = auth.token;
@@ -55,14 +57,14 @@ export default function SetupPage() {
     setError('');
     try {
       // 載入統計
-      const statsRes = await fetch('http://localhost:8000/api/v1/admin/stats', {
+      const statsRes = await fetch('/api/v1/admin/stats', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!statsRes.ok) throw new Error('無權限或載入失敗');
       setStats(await statsRes.json());
 
       // 載入用戶列表
-      const usersRes = await fetch('http://localhost:8000/api/v1/admin/users', {
+      const usersRes = await fetch('/api/v1/admin/users', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!usersRes.ok) throw new Error('無權限或載入失敗');
@@ -81,7 +83,7 @@ export default function SetupPage() {
     setActionLoading(true);
     setMessage('');
     try {
-      const res = await fetch('http://localhost:8000/api/v1/admin/users', {
+      const res = await fetch('/api/v1/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ username: newUsername, password: newPassword, is_admin: newIsAdmin })
@@ -103,12 +105,36 @@ export default function SetupPage() {
     }
   }
 
+  async function handleChangePassword(userId: string) {
+    if (!newPasswordInput.trim()) return;
+    setActionLoading(true);
+    setMessage('');
+    try {
+      const res = await fetch(`/api/v1/admin/users/${userId}/password`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ new_password: newPasswordInput })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || '修改密碼失敗');
+      }
+      setMessage('✅ 密碼已修改');
+      setEditingPasswordUserId(null);
+      setNewPasswordInput('');
+    } catch (err: any) {
+      setMessage(`❌ ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleDeleteUser(userId: string, username: string) {
     if (!confirm(`確定要刪除使用者「${username}」嗎？`)) return;
     setActionLoading(true);
     setMessage('');
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/admin/users/${userId}`, {
+      const res = await fetch(`/api/v1/admin/users/${userId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -127,7 +153,7 @@ export default function SetupPage() {
 
   async function handleToggleAdmin(userId: string, currentAdmin: boolean) {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/admin/users/${userId}`, {
+      const res = await fetch(`/api/v1/admin/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ is_admin: !currentAdmin })
@@ -303,7 +329,8 @@ export default function SetupPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {users.map((user) => (
-                    <tr key={user.id}>
+                    <React.Fragment key={user.id}>
+                    <tr>
                       <td className="px-4 py-3">
                         <span className="font-medium text-gray-900">{user.username}</span>
                       </td>
@@ -317,6 +344,16 @@ export default function SetupPage() {
                       <td className="px-4 py-3 text-gray-600">{user.card_count}</td>
                       <td className="px-4 py-3 text-gray-600 text-sm">{new Date(user.created_at).toLocaleDateString('zh-TW')}</td>
                       <td className="px-4 py-3 flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => {
+                            setEditingPasswordUserId(user.id);
+                            setNewPasswordInput('');
+                            setMessage('');
+                          }}
+                          className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded"
+                        >
+                          修改密碼
+                        </button>
                         {!user.is_admin && (
                           <button
                             onClick={() => handleToggleAdmin(user.id, user.is_admin)}
@@ -343,6 +380,41 @@ export default function SetupPage() {
                         )}
                       </td>
                     </tr>
+                    {editingPasswordUserId === user.id && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-3 bg-blue-50">
+                          <form
+                            onSubmit={(e) => { e.preventDefault(); handleChangePassword(user.id); }}
+                            className="flex gap-2 items-center flex-wrap"
+                          >
+                            <span className="text-sm text-gray-700">新密碼：</span>
+                            <input
+                              type="password"
+                              value={newPasswordInput}
+                              onChange={(e) => setNewPasswordInput(e.target.value)}
+                              className="shadow border rounded py-1 px-2 text-gray-700 text-sm"
+                              placeholder="輸入新密碼"
+                              required
+                            />
+                            <button
+                              type="submit"
+                              disabled={actionLoading}
+                              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded disabled:opacity-50"
+                            >
+                              儲存
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingPasswordUserId(null)}
+                              className="text-xs bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 rounded"
+                            >
+                              取消
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>

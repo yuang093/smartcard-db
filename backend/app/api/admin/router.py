@@ -157,7 +157,6 @@ async def create_user(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="帳號已存在")
 
-    from app.models import User
     from app.core.security import get_password_hash
 
     new_user = User(
@@ -180,7 +179,7 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """更新使用者（目前支援修改 admin 權限）"""
+    """更新使用者（支援修改 admin 權限）"""
     from uuid import UUID
     try:
         uid = UUID(user_id)
@@ -197,6 +196,36 @@ async def update_user(
 
     await db.commit()
     return {"id": str(user.id), "username": user.username, "is_admin": user.is_admin}
+
+
+class PasswordChange(BaseModel):
+    new_password: str
+
+
+@router.patch("/users/{user_id}/password")
+async def change_user_password(
+    user_id: str,
+    password_data: PasswordChange,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """修改使用者密碼（僅管理員可用）"""
+    from uuid import UUID
+    from app.core.security import get_password_hash
+
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="無效的使用者 ID")
+
+    result = await db.execute(select(User).where(User.id == uid))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="使用者不存在")
+
+    user.hashed_password = get_password_hash(password_data.new_password)
+    await db.commit()
+    return {"id": str(user.id), "username": user.username, "message": "密碼已更新"}
 
 
 @router.delete("/users/{user_id}", status_code=204)

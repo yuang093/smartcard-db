@@ -13,8 +13,8 @@ export default function Navbar() {
   useEffect(() => {
     const auth = JSON.parse(localStorage.getItem('smartcard_auth') || '{}');
     if (auth.token) {
-      // Fetch is_admin from /me endpoint
-      fetch('http://localhost:8000/api/v1/auth/me', {
+      // Use relative path so it goes through Next.js proxy (Tunnel / localhost)
+      fetch(`/api/v1/auth/me`, {
         headers: { 'Authorization': `Bearer ${auth.token}` }
       })
         .then(res => res.ok ? res.json() : null)

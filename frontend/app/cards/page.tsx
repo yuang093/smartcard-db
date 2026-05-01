@@ -5,6 +5,34 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { cardsApi, Card, DuplicateWarning } from '@/lib/api';
 import { tagsApi } from '@/lib/api';
+import Link from 'next/link';
+
+function AdminButton() {
+  const [isAdminUser, setIsAdminUser] = useState(false);
+
+  useEffect(() => {
+    const auth = JSON.parse(localStorage.getItem('smartcard_auth') || '{}');
+    if (!auth.token) return;
+    fetch(`/api/v1/auth/me`, {
+      headers: { 'Authorization': `Bearer ${auth.token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.is_admin) setIsAdminUser(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!isAdminUser) return null;
+  return (
+    <Link
+      href="/setup"
+      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 sm:px-4 rounded text-sm sm:text-base w-full sm:w-auto"
+    >
+      ⚙️ 管理
+    </Link>
+  );
+}
 
 export default function CardsPage() {
   const { isAuthenticated, loading, logout } = useAuth();
@@ -312,6 +340,7 @@ export default function CardsPage() {
         <div className="max-w-7xl mx-auto py-4 px-4 flex flex-col sm:flex-row justify-between items-center gap-3">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">名片管理</h1>
           <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+            <AdminButton />
             <button
               onClick={() => router.push('/tags')}
               className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-3 sm:px-4 rounded text-sm sm:text-base w-full sm:w-auto"

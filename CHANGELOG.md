@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.1] - 2026-05-02
+
+### Fixed
+- Admin API: 修復 `create_user` 函式內重複 `from app.models import User` 導致 `UnboundLocalError`
+- Admin API: 新增 `PATCH /users/{user_id}/password` 修改密碼端點
+- Frontend: 將所有 `http://localhost:8000` 改為相對路徑 `/api`，支援 Tunnel 環境
+- Frontend: 修復 `/setup` 頁面 `React.Fragment` 巢狀 JSX 解析錯誤
+
+### Added
+- Admin 頁面：修改密碼功能（藍色按鈕展開輸入框）
+- `/cards` 頁面：直接內建「⚙️ 管理」按鈕（RBAC，僅 admin 可見）
+
 ## [v1.2.0] - 2026-05-02
 
 ### Added
