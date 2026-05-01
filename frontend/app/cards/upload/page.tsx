@@ -249,6 +249,15 @@ export default function UploadPage() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-indigo-600 mb-2">上傳名片</h1>
           <p className="text-gray-600">拍攝或選擇名片圖片，AI 自動解析聯絡人資訊</p>
+          {/* 按鈕移到副標題下方 */}
+          <button
+            type="button"
+            onClick={() => frontInputRef.current?.click()}
+            disabled={loading}
+            className="mt-4 w-full py-3 px-6 rounded-xl font-semibold text-white transition-all bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            📷 上傳並 AI 解析
+          </button>
         </div>
 
         {/* Upload Card */}
@@ -361,10 +370,10 @@ export default function UploadPage() {
               className={`w-full py-3 px-6 rounded-xl font-semibold text-white transition-all ${
                 !frontFile || loading
                   ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg active:scale-95"
+                  : "bg-indigo-400 hover:bg-indigo-500 active:scale-95"
               }`}
             >
-              {loading ? "AI 辨識中..." : "上傳並 AI 解析"}
+              {loading ? "AI 辨識中..." : "確認上傳"}
             </button>
           </form>
         </div>
