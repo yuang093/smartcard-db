@@ -62,12 +62,12 @@ async def check_duplicates(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """偵測重複名片（同名稱+同公司）"""
+    """偵測重複名片(同名稱+同公司)"""
     result = await db.execute(
         select(Card).where(Card.user_id == current_user.id).order_by(Card.name, Card.company)
     )
     all_cards = result.scalars().all()
-    
+
     # Group by name + company
     groups: dict[tuple, list[Card]] = {}
     for card in all_cards:
@@ -76,7 +76,7 @@ async def check_duplicates(
             if key not in groups:
                 groups[key] = []
             groups[key].append(card)
-    
+
     # Find duplicates
     duplicates = []
     for key, cards in groups.items():
@@ -87,7 +87,7 @@ async def check_duplicates(
                 "count": len(cards),
                 "cards": [{"id": str(c.id), "created_at": c.created_at.isoformat() if c.created_at else ""} for c in cards],
             })
-    
+
     return duplicates
 
 
@@ -163,8 +163,8 @@ async def create_card(
         card_dict = card_data.model_dump(exclude_unset=True)
         now = datetime.utcnow()
         new_id = uuid.uuid4()
-        
-        # ✅ 先將 Card 加入 session（順序很重要！）
+
+        # ✅ 先將 Card 加入 session(順序很重要!)
         new_card = Card(
             id=new_id,
             user_id=current_user.id,
@@ -181,16 +181,16 @@ async def create_card(
             updated_at=now,
         )
         db.add(new_card)  # ← 確保 Card 在所有 related objects 之前被加入
-        
+
         # Add tags if provided
         tag_ids = card_dict.get('tag_ids', [])
         for tag_id in tag_ids:
             card_tag = CardTag(card_id=new_id, tag_id=tag_id)
             db.add(card_tag)
-        
+
         await db.commit()
         await db.refresh(new_card)
-        
+
         # Return response without accessing relationships (avoids lazy load issues)
         return CardResponse(
             id=str(new_id),
@@ -216,7 +216,7 @@ async def create_card(
         print(f"Card data: {card_dict}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"儲存失敗：{str(e)}",
+            detail=f"儲存失敗:{str(e)}",
         )
 
 
@@ -241,18 +241,18 @@ async def update_card(
     """更新名片"""
     card = await _get_card_or_404(card_id, current_user.id, db)
     card_dict = card_data.model_dump(exclude_unset=True)
-    
+
     # Handle tag_ids separately (replace all existing tags)
     tag_ids = card_dict.pop('tag_ids', None)
-    
+
     # Update other fields
     for key, value in card_dict.items():
         if key not in ('id', 'user_id', 'created_at'):
             setattr(card, key, value)
-    
+
     # Always update updated_at
     card.updated_at = datetime.utcnow()
-    
+
     # Update tags if provided (even if empty list means clear all tags)
     if tag_ids is not None:
         # Remove all existing tags for this card (convert string to UUID)
@@ -265,6 +265,15 @@ async def update_card(
             db.add(card_tag)
     
     await db.commit()
+    
+    # Re-fetch card with tags to ensure they're loaded for response
+    result = await db.execute(
+        select(Card)
+        .where(Card.id == uuid.UUID(card_id))
+        .options(selectinload(Card.tags).selectinload(CardTag.tag))
+    )
+    card = result.scalar_one()
+    
     await db.refresh(card)
     return _card_to_response(card)
 
