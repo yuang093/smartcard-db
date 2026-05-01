@@ -118,6 +118,7 @@ export interface Card {
   mobile?: string;
   email?: string;
   address?: string;
+  notes?: string;
   front_image_url?: string;
   back_image_url?: string;
   created_at: string;

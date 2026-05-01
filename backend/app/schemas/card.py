@@ -30,6 +30,7 @@ class CardBase(BaseModel):
     email: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class CardCreate(CardBase):
