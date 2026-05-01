@@ -20,9 +20,9 @@
 ## Phase 4: 聯絡人管理、防呆與 UI 優化
 4.1 詳情頁優化 (Detail)
 - [x] 詳情頁顯示彩色標籤。 (2026-05-01)
-- [ ] 支援顯示正/背面圖片。
-- [ ] 實作「備註與互動紀錄 (Notes)」文字區塊。
-- [ ] 加入「一鍵複製電話/Email」按鈕，並支援 Click-to-Call (tel:) 與 Click-to-Email (mailto:)。
+- [x] 支援顯示正/背面圖片。 (2026-05-01)
+- [x] 實作「備註 (Notes)」文字區塊。 (2026-05-01)
+- [x] 加入「一鍵複製電話/Email」按鈕，並支援 Click-to-Call (tel:) 與 Click-to-Email (mailto:)。 (2026-05-01)
 
 4.2 編輯頁優化 (Edit)
 - [x] CardUpdate schema 新增 tag_ids 欄位（修復標籤無法更新 Bug）。 (2026-05-01)
