@@ -39,7 +39,7 @@ class CardCreate(CardBase):
 
 
 class CardUpdate(CardBase):
-    pass
+    tag_ids: Optional[list[str]] = None
 
 
 class CardResponse(CardBase):
