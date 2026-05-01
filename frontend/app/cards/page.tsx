@@ -123,8 +123,11 @@ export default function CardsPage() {
     }
     
     try {
+      console.log('[DEBUG] Submitting card with formData:', JSON.stringify(formData));
       if (editingCard) {
+        console.log('[DEBUG] Updating card:', editingCard.id, 'with tag_ids:', formData.tag_ids);
         await cardsApi.update(editingCard.id, formData);
+        console.log('[DEBUG] Update successful');
       } else {
         // Check for duplicates first
         if (formData.name) {
