@@ -16,6 +16,7 @@ export default function CardsPage() {
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateWarning[]>([]);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [pendingCard, setPendingCard] = useState<Partial<Card> | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailCard, setDetailCard] = useState<Card | null>(null);
@@ -252,7 +253,9 @@ export default function CardsPage() {
   };
 
   const handleExport = async () => {
+    if (exporting) return; // Prevent double-click
     try {
+      setExporting(true);
       // Get token from localStorage
       const auth = localStorage.getItem('smartcard_auth');
       const token = auth ? JSON.parse(auth).token : '';
@@ -280,6 +283,8 @@ export default function CardsPage() {
     } catch (err) {
       console.error('Export failed:', err);
       alert('匯出失敗，請稍後再試');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -310,9 +315,10 @@ export default function CardsPage() {
             </button>
             <button
               onClick={handleExport}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+              disabled={exporting}
+              className={`font-bold py-2 px-4 rounded ${exporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
             >
-              匯出 Excel
+              {exporting ? '匯出中...' : '匯出 Excel'}
             </button>
             <button
               onClick={handleLogout}
