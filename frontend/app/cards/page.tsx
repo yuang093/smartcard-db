@@ -306,6 +306,12 @@ export default function CardsPage() {
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto py-6 px-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-900">名片管理</h1>
+          <button
+            onClick={() => router.push('/cards/upload')}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded"
+          >
+            📷 上傳並 AI 解析
+          </button>
           <div className="flex gap-4">
             <button
               onClick={() => router.push('/tags')}
