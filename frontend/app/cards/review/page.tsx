@@ -147,7 +147,7 @@ export default function ReviewPage() {
               <div style={{ position: 'relative', width: '8rem', height: '5rem', borderRadius: '1rem', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/uploads/${imageUrls.front.split("/").pop()}`}
+                  src={`/api/v1/static/${imageUrls.front.split("/").pop()}`}
                   alt="名片正面"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -158,7 +158,7 @@ export default function ReviewPage() {
               <div style={{ position: 'relative', width: '8rem', height: '5rem', borderRadius: '1rem', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/uploads/${imageUrls.back.split("/").pop()}`}
+                  src={`/api/v1/static/${imageUrls.back.split("/").pop()}`}
                   alt="名片背面"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
