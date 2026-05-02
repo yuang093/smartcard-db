@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import api from "@/lib/api";
-import Navbar from "@/components/Navbar";
+import ThemeToggle from "@/components/ThemeToggle";
 
 interface ParsedCard {
   name?: string | null;
@@ -18,8 +18,8 @@ interface ParsedCard {
   front_image_url?: string | null;
   back_image_url?: string | null;
   _parse_error?: string;
-  _front_preview?: string | null;  // local object URL for instant preview
-  _back_preview?: string | null;     // local object URL for instant preview
+  _front_preview?: string | null;
+  _back_preview?: string | null;
 }
 
 export default function ReviewPage() {
@@ -48,9 +48,7 @@ export default function ReviewPage() {
     try {
       const parsed: ParsedCard = JSON.parse(stored);
       setData(parsed);
-      // Prefer local object URL (instant preview), fallback to server URL
       setImageUrls({
-        // ✅ 優先使用伺服器實際路徑，blob URL 只用於本機預覽
         front: parsed.front_image_url || parsed._front_preview || "",
         back: parsed.back_image_url || parsed._back_preview || "",
       });
@@ -82,23 +80,19 @@ export default function ReviewPage() {
     setLoading(true);
     setError("");
     try {
-      console.log("Submitting card with form:", form);
-      console.log("Image URLs:", imageUrls);
       const result = await api.post("/api/v1/cards", {
         ...form,
         front_image_url: imageUrls.front || null,
         back_image_url: imageUrls.back || null,
         tag_ids: [],
       });
-      console.log("Card saved successfully:", result);
       sessionStorage.removeItem("parsed_card");
       toast.success("名片已儲存！");
       router.push("/cards");
     } catch (err: unknown) {
-      const error = err instanceof Error ? err.message : "儲存失敗，請稍後再試";
-      console.error("Save card error:", error, err);
-      setError(error);
-      toast.error(error);
+      const msg = err instanceof Error ? err.message : "儲存失敗，請稍後再試";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -106,68 +100,100 @@ export default function ReviewPage() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c)',
+        backgroundSize: '400% 400%',
+        animation: 'gradientShift 10s ease infinite',
+      }}>
+        <div style={{ width: '3rem', height: '3rem', border: '4px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-8">
+    <div style={{ minHeight: '100vh', background: 'var(--bg-secondary)' }}>
       <Toaster position="top center" />
-      <Navbar />
 
-      <div className="max-w-lg mx-auto px-4 py-6">
-        {/* Image preview using relative URLs (served via Next.js /api proxy) */}
-        <div className="flex gap-3 mb-6">
-          {imageUrls.front && (
-            <div className="w-24 h-16 bg-gray-100 rounded-lg overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/uploads/${imageUrls.front.split("/").pop()}`}
-                alt="正面"
-                className="w-full h-full object-cover"
-              />
+      {/* Header */}
+      <header style={{ background: 'var(--header-bg)', boxShadow: '0 1px 3px var(--shadow-color)', borderBottom: '1px solid var(--header-border)' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', background: 'linear-gradient(-45deg, #667eea, #764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 8h6M7 12h10M7 16h4"/></svg>
             </div>
-          )}
-          {imageUrls.back && (
-            <div className="w-24 h-16 bg-gray-100 rounded-lg overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/uploads/${imageUrls.back.split("/").pop()}`}
-                alt="背面"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">📋 人工校對</h2>
-            {data._parse_error && (
-              <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                AI 辨識不完整
-              </span>
-            )}
+            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--text-primary)' }}>📋 人工校對</h1>
           </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <ThemeToggle />
+            <button
+              onClick={() => router.push('/cards')}
+              style={{ padding: '0.5rem 0.875rem', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: '600', borderRadius: '0.625rem', border: '1px solid var(--border-color)', cursor: 'pointer', fontSize: '0.8125rem' }}
+            >
+              ← 返回名片
+            </button>
+          </div>
+        </div>
+      </header>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Suggested tags */}
-            {data.suggested_tags && data.suggested_tags.length > 0 && (
-              <div className="p-3 bg-indigo-50 rounded-xl">
-                <p className="text-xs text-indigo-600 mb-2 font-medium">AI 建議標籤</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {data.suggested_tags.map((tag, i) => (
-                    <span key={i} className="px-2.5 py-1 bg-indigo-100 text-indigo-600 text-xs rounded-full">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+      <main style={{ maxWidth: '36rem', margin: '0 auto', padding: '1.5rem' }}>
+        {/* Image preview */}
+        {(imageUrls.front || imageUrls.back) && (
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+            {imageUrls.front && (
+              <div style={{ position: 'relative', width: '8rem', height: '5rem', borderRadius: '1rem', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/uploads/${imageUrls.front.split("/").pop()}`}
+                  alt="名片正面"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', background: 'linear-gradient(transparent, rgba(0,0,0,0.6))', padding: '0.25rem 0.5rem', fontSize: '0.6875rem', color: 'white', fontWeight: '600' }}>正面</div>
               </div>
             )}
+            {imageUrls.back && (
+              <div style={{ position: 'relative', width: '8rem', height: '5rem', borderRadius: '1rem', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/uploads/${imageUrls.back.split("/").pop()}`}
+                  alt="名片背面"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <div style={{ position: 'absolute', bottom: '0', left: '0', right: '0', background: 'linear-gradient(transparent, rgba(0,0,0,0.6))', padding: '0.25rem 0.5rem', fontSize: '0.6875rem', color: 'white', fontWeight: '600' }}>背面</div>
+              </div>
+            )}
+          </div>
+        )}
 
-            {/* Fields */}
+        {/* Form Card */}
+        <div style={{ background: 'var(--bg-card)', borderRadius: '1.5rem', boxShadow: '0 4px 6px -1px var(--shadow-color), 0 0 0 1px var(--border-color)', padding: '1.5rem', animation: 'slideUp 0.3s ease-out' }}>
+          {/* AI error badge */}
+          {data._parse_error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', padding: '0.625rem 1rem', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '0.75rem' }}>
+              <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+              <span style={{ fontSize: '0.8125rem', color: '#D97706', fontWeight: '600' }}>AI 辨識不完整，請自行填寫或修正</span>
+            </div>
+          )}
+
+          {/* Suggested tags */}
+          {data.suggested_tags && data.suggested_tags.length > 0 && (
+            <div style={{ marginBottom: '1.5rem', padding: '0.875rem', background: 'rgba(102, 126, 234, 0.08)', borderRadius: '1rem', border: '1px solid rgba(102, 126, 234, 0.2)' }}>
+              <p style={{ fontSize: '0.6875rem', color: '#667eea', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>✨ AI 建議標籤</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                {data.suggested_tags.map((tag, i) => (
+                  <span key={i} style={{ padding: '0.25rem 0.75rem', background: 'rgba(102, 126, 234, 0.15)', color: '#667eea', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '600' }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Form fields */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {[
               { key: "name", label: "姓名", required: true },
               { key: "company", label: "公司" },
@@ -178,53 +204,59 @@ export default function ReviewPage() {
               { key: "address", label: "地址" },
             ].map(({ key, label, required }) => (
               <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {label} {required && <span className="text-red-500">*</span>}
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '0.375rem' }}>
+                  {label} {required && <span style={{ color: '#EF4444' }}>*</span>}
                 </label>
                 <input
                   type={key === "email" ? "email" : "text"}
                   value={(form as Record<string, string>)[key]}
                   onChange={(e) => handleChange(key, e.target.value)}
                   placeholder={label}
-                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid var(--border-color)', borderRadius: '0.75rem', fontSize: '0.9375rem', background: 'var(--input-bg)', color: 'var(--text-primary)', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box' }}
+                  onFocus={(e) => { e.target.style.borderColor = '#667eea'; e.target.style.boxShadow = '0 0 0 3px rgba(102,126,234,0.15)'; }}
+                  onBlur={(e) => { e.target.style.borderColor = 'var(--border-color)'; e.target.style.boxShadow = 'none'; }}
                 />
               </div>
             ))}
 
             {/* Error */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+              <div style={{ padding: '0.875rem', background: 'var(--error-bg)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '0.75rem', fontSize: '0.875rem', color: '#EF4444', fontWeight: '500' }}>
                 {error}
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex gap-3 pt-2">
+            <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem' }}>
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="flex-1 py-2.5 border border-gray-300 text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                style={{ flex: 1, padding: '0.875rem', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontWeight: '600', borderRadius: '0.75rem', border: '1px solid var(--border-color)', cursor: 'pointer', fontSize: '0.9375rem', transition: 'all 0.2s' }}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'var(--bg-card)'; }}
               >
-                取消
+                ✕ 取消
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                style={{ flex: 1, padding: '0.875rem', background: loading ? '#9CA3AF' : 'linear-gradient(-45deg, #667eea, #764ba2)', color: 'white', fontWeight: '700', borderRadius: '0.75rem', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.9375rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', boxShadow: loading ? 'none' : '0 4px 15px rgba(102,126,234,0.35)', transition: 'all 0.3s' }}
+                onMouseOver={(e) => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 6px 20px rgba(102,126,234,0.5)'; } }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = loading ? 'none' : '0 4px 15px rgba(102,126,234,0.35)'; }}
               >
                 {loading ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div style={{ width: '1rem', height: '1rem', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                     儲存中...
                   </>
                 ) : (
-                  "儲存名片"
+                  '💾 儲存名片'
                 )}
               </button>
             </div>
           </form>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

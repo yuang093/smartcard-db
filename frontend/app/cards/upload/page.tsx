@@ -1,20 +1,17 @@
-"use client";
+'use client';
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import type { CardUploadResponse } from "@/types";
-import Navbar from "@/components/Navbar";
+import ThemeToggle from "@/components/ThemeToggle";
 
-/** Compress image to target size (in bytes) using Canvas API */
 async function compressImage(file: File, maxSizeBytes: number = 500 * 1024): Promise<File> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      
-      // Calculate target dimensions (max 1200px on longest side)
       const MAX_DIM = 1200;
       let { width, height } = img;
       if (width > MAX_DIM || height > MAX_DIM) {
@@ -26,47 +23,30 @@ async function compressImage(file: File, maxSizeBytes: number = 500 * 1024): Pro
           height = MAX_DIM;
         }
       }
-      
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, 0, 0, width, height);
-      
-      // Try JPEG at quality 0.85 first
-      let quality = 0.85;
-      let blob: Blob | null = null;
-      
-      const tryCompress = (mimeType: string, q: number): Promise<Blob | null> => {
-        return new Promise((res) => {
-          canvas.toBlob(
-            (b) => res(b),
-            mimeType,
-            q
-          );
-        });
-      };
-      
+
+      const tryCompress = (q: number): Promise<Blob | null> =>
+        new Promise((res) => canvas.toBlob((b) => res(b), 'image/jpeg', q));
+
       const attempt = async () => {
         for (let q = 0.85; q >= 0.4; q -= 0.1) {
-          const b = await tryCompress('image/jpeg', q);
+          const b = await tryCompress(q);
           if (b && b.size <= maxSizeBytes) {
             resolve(new File([b], file.name, { type: 'image/jpeg' }));
             return;
           }
         }
-        // If still too big, just return at lowest quality
-        const b = await tryCompress('image/jpeg', 0.4);
+        const b = await tryCompress(0.4);
         if (b) resolve(new File([b], file.name, { type: 'image/jpeg' }));
-        else resolve(file); // fallback to original
+        else resolve(file);
       };
-      
       attempt();
     };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Failed to load image'));
-    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
     img.src = url;
   });
 }
@@ -122,77 +102,46 @@ export default function UploadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    // ── Debug: 確認檔案真的存在 ────────────────────────────
     if (!frontFile) {
-      toast.error("找不到正面檔案狀態，請重新選擇");
+      toast.error("請選擇名片正面圖片");
       return;
     }
-    console.log("即將發送的正面檔案大小:", frontFile.size, "bytes",
-      "檔名:", frontFile.name, "類型:", frontFile.type);
 
     setLoading(true);
-    toast.loading("上傳中，請稍候...", { id: "upload-toast", duration: 999999 });
+    toast.loading("📤 上傳中，請稍候...", { id: "upload-toast", duration: 999999 });
 
     try {
-      // ── 先壓縮圖片（目標 < 500KB）────────────────────────
       let frontToSend = frontFile;
       let backToSend = backFile;
       try {
         frontToSend = await compressImage(frontFile, 500 * 1024);
-        console.log("Compressed front:", frontFile.size, "->", frontToSend.size, "bytes");
-        if (backFile) {
-          backToSend = await compressImage(backFile, 500 * 1024);
-          console.log("Compressed back:", backFile.size, "->", backToSend.size, "bytes");
-        }
+        if (backFile) backToSend = await compressImage(backFile, 500 * 1024);
       } catch (cmpErr) {
-        console.warn("Compression failed, using original:", cmpErr);
+        console.warn("Compression failed:", cmpErr);
       }
-      
-      // ── 直接使用原始檔案，移除所有壓縮 ─────────────────────
+
       const formData = new FormData();
       formData.append("front", frontToSend);
-      if (backToSend) {
-        formData.append("back", backToSend);
-      }
+      if (backToSend) formData.append("back", backToSend);
 
-      // ── Debug: 確認 FormData 內容 ────────────────────────
-      const frontInFd = formData.get("front");
-      console.log("FormData front field:", frontInFd !== null ? "OK" : "NULL/MISSING",
-        frontInFd instanceof File ? `File(${(frontInFd as File).size}b)` : String(frontInFd));
+      const token = localStorage.getItem("smartcard_auth")
+        ? JSON.parse(localStorage.getItem("smartcard_auth")!).token
+        : null;
 
-      // 從 localStorage 取 JWT token
-      const token = localStorage.getItem("smartcard_auth") ? JSON.parse(localStorage.getItem("smartcard_auth")!).token : null;
-      console.log("Token present:", !!token, token ? `(${token.substring(0,20)}...)` : "");
-
-      // ── 使用 fetch() 直接發送，杜絕任何 axios 干擾 ─────────────────
-      // 瀏覽器會自動生成 multipart/form-data; boundary=...
-      // 不需要手動設定 Content-Type
       const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      console.log("即將發送 fetch 到 /api/v1/cards/upload_and_parse");
       const res = await fetch("/api/v1/cards/upload_and_parse", {
         method: "POST",
         headers,
         body: formData,
       });
 
-      console.log("收到回應 status:", res.status, "statusText:", res.statusText);
-
       if (!res.ok) {
         let errMsg = `HTTP ${res.status}`;
         try {
           const errData = await res.json();
-          if (errData.detail) {
-            if (Array.isArray(errData.detail)) {
-              errMsg = errData.detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join(", ");
-            } else {
-              errData.detail;
-            }
-          }
+          if (errData.detail) errMsg = String(errData.detail);
         } catch {}
         throw new Error(errMsg);
       }
@@ -200,20 +149,14 @@ export default function UploadPage() {
       const data: CardUploadResponse = await res.json();
       const parsed: ParsedCard = data.parsed || {};
 
-      // Guard: if AI returned empty data or _parse_error, show error and stay
       if (!parsed.name && !parsed.company && !parsed.email && !parsed._parse_error) {
-        toast.error("AI 辨識失敗，請重試或手動輸入", { id: "upload-toast" });
-        setLoading(false);
-        return;
+        throw new Error("AI 辨識失敗，請重試或手動輸入");
       }
 
       if (parsed._parse_error) {
-        toast.error("AI 辨識失敗：" + parsed._parse_error, { id: "upload-toast" });
-        setLoading(false);
-        return;
+        throw new Error("AI 辨識失敗：" + parsed._parse_error);
       }
 
-      // Store parsed result AND local preview URLs in sessionStorage
       const frontPreviewUrl = frontPreview || URL.createObjectURL(frontFile);
       const backPreviewUrl = backFile ? (backPreview || URL.createObjectURL(backFile)) : null;
 
@@ -228,129 +171,152 @@ export default function UploadPage() {
         })
       );
 
-      toast.success("AI 辨識完成！", { id: "upload-toast" });
+      toast.success("✨ AI 辨識完成！", { id: "upload-toast" });
       router.push("/cards/review");
     } catch (err: unknown) {
       toast.dismiss("upload-toast");
       const errMsg = err instanceof Error ? err.message : "上傳失敗";
       setError(errMsg);
-      toast.error(errMsg, { id: "upload-toast" });
+      toast.error(errMsg);
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
-      <Navbar />
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c)',
+      backgroundSize: '400% 400%',
+      animation: 'gradientShift 10s ease infinite',
+    }}>
+      <Toaster position="top center" toastOptions={{ duration: 3000 }} />
 
-      <div className="max-w-xl mx-auto pt-10 px-4">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-indigo-600 mb-2">上傳名片</h1>
-          <p className="text-gray-600">拍攝或選擇名片圖片，AI 自動解析聯絡人資訊</p>
+      {/* Floating blobs */}
+      <div style={{ position: 'fixed', top: '-10%', right: '-5%', width: '400px', height: '400px', borderRadius: '50%', opacity: 0.3, background: '#f093fb', filter: 'blur(60px)', animation: 'float1 8s ease-in-out infinite', pointerEvents: 'none' }} />
+      <div style={{ position: 'fixed', bottom: '-10%', left: '-5%', width: '350px', height: '350px', borderRadius: '50%', opacity: 0.3, background: '#667eea', filter: 'blur(60px)', animation: 'float2 10s ease-in-out infinite', pointerEvents: 'none' }} />
+
+      {/* Header */}
+      <header style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.2)', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ maxWidth: '36rem', margin: '0 auto', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 8h6M7 12h10M7 16h4"/></svg>
+            </div>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'white' }}>📷 AI 上傳名片</h1>
+          </div>
+          <ThemeToggle style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: 'white' }} />
+        </div>
+      </header>
+
+      <main style={{ maxWidth: '36rem', margin: '0 auto', padding: '1.5rem' }}>
+        {/* Header text */}
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: 'white', marginBottom: '0.5rem' }}>上傳名片</h2>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9375rem' }}>拍攝或選擇名片圖片，AI 自動解析聯絡人資訊</p>
         </div>
 
         {/* Upload Card */}
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <form onSubmit={handleSubmit} method="post">
-            {/* 上傳按鈕移到 form 內的最上面 */}
+        <div style={{ background: 'white', borderRadius: '1.5rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', padding: '2rem', position: 'relative', zIndex: 1, animation: 'slideUp 0.4s ease-out' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={!frontFile || loading}
-              className="w-full py-3 px-6 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed mb-6"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                background: !frontFile || loading ? '#9CA3AF' : 'linear-gradient(-45deg, #667eea, #764ba2)',
+                color: 'white',
+                fontWeight: '700',
+                fontSize: '1rem',
+                borderRadius: '1rem',
+                border: 'none',
+                cursor: !frontFile || loading ? 'not-allowed' : 'pointer',
+                boxShadow: !frontFile || loading ? 'none' : '0 4px 15px rgba(102,126,234,0.35)',
+                transition: 'all 0.3s',
+              }}
+              onMouseOver={(e) => { if (frontFile && !loading) { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; } }}
+              onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}
             >
-              {loading ? "AI 辨識中..." : "📷 上傳並 AI 解析"}
+              {loading ? '⏳ AI 辨識中...' : '📷 上傳並 AI 解析'}
             </button>
 
             {/* Front Image */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                名片正面 <span className="text-red-500">*</span>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
+                名片正面 <span style={{ color: '#EF4444' }}>*</span>
               </label>
               <div
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                  frontFile ? "border-indigo-400 bg-indigo-50" : "border-gray-300 hover:border-indigo-400"
-                }`}
                 onClick={() => frontInputRef.current?.click()}
+                style={{
+                  border: `2px dashed ${frontFile ? '#667eea' : '#d1d5db'}`,
+                  borderRadius: '1rem',
+                  padding: '1.5rem',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  background: frontFile ? 'rgba(102, 126, 234, 0.05)' : 'transparent',
+                  transition: 'all 0.2s',
+                }}
+                onMouseOver={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#667eea'; }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = frontFile ? '#667eea' : '#d1d5db'; }}
               >
-                <input
-                  ref={frontInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFrontChange}
-                />
+                <input ref={frontInputRef} type="file" accept="image/*" className="hidden" onChange={handleFrontChange} />
                 {frontPreview ? (
-                  <div className="relative">
-                    <img
-                      src={frontPreview}
-                      alt="名片正面預覽"
-                      className="max-h-48 mx-auto rounded-lg shadow-md"
-                    />
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <img src={frontPreview} alt="正面預覽" style={{ maxHeight: '12rem', borderRadius: '0.75rem', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} />
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFrontFile(null);
-                        setFrontPreview(null);
-                        if (frontInputRef.current) frontInputRef.current.value = "";
-                      }}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg hover:bg-red-600"
+                      onClick={(e) => { e.stopPropagation(); setFrontFile(null); setFrontPreview(null); if (frontInputRef.current) frontInputRef.current.value = ""; }}
+                      style={{ position: 'absolute', top: '-0.5rem', right: '-0.5rem', width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: '#EF4444', color: 'white', border: 'none', cursor: 'pointer', fontSize: '1.125rem', lineHeight: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                       ×
                     </button>
                   </div>
                 ) : (
-                  <div className="text-gray-400">
-                    <div className="text-5xl mb-3">📇</div>
-                    <p className="text-sm">點擊選擇名片正面圖片</p>
-                    <p className="text-xs text-gray-400 mt-1">支援 JPG, PNG, HEIC</p>
+                  <div style={{ color: '#9CA3AF' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>📇</div>
+                    <p style={{ color: '#374151', fontSize: '0.9375rem', fontWeight: '600' }}>點擊選擇名片正面圖片</p>
+                    <p style={{ color: '#9CA3AF', fontSize: '0.8125rem', marginTop: '0.25rem' }}>支援 JPG, PNG, HEIC</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Back Image (Optional) */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
                 名片背面（選填）
               </label>
               <div
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                  backFile ? "border-indigo-400 bg-indigo-50" : "border-gray-300 hover:border-indigo-400"
-                }`}
                 onClick={() => backInputRef.current?.click()}
+                style={{
+                  border: `2px dashed ${backFile ? '#667eea' : '#d1d5db'}`,
+                  borderRadius: '1rem',
+                  padding: '1.5rem',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  background: backFile ? 'rgba(102, 126, 234, 0.05)' : 'transparent',
+                  transition: 'all 0.2s',
+                }}
+                onMouseOver={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#667eea'; }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = backFile ? '#667eea' : '#d1d5db'; }}
               >
-                <input
-                  ref={backInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleBackChange}
-                />
+                <input ref={backInputRef} type="file" accept="image/*" className="hidden" onChange={handleBackChange} />
                 {backPreview ? (
-                  <div className="relative">
-                    <img
-                      src={backPreview}
-                      alt="名片背面預覽"
-                      className="max-h-48 mx-auto rounded-lg shadow-md"
-                    />
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <img src={backPreview} alt="背面預覽" style={{ maxHeight: '12rem', borderRadius: '0.75rem', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} />
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearBack();
-                      }}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg hover:bg-red-600"
+                      onClick={(e) => { e.stopPropagation(); clearBack(); }}
+                      style={{ position: 'absolute', top: '-0.5rem', right: '-0.5rem', width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: '#EF4444', color: 'white', border: 'none', cursor: 'pointer', fontSize: '1.125rem', lineHeight: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                       ×
                     </button>
                   </div>
                 ) : (
-                  <div className="text-gray-400">
-                    <div className="text-5xl mb-3">🗒️</div>
-                    <p className="text-sm">點擊選擇名片背面圖片（選填）</p>
+                  <div style={{ color: '#9CA3AF' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🗒️</div>
+                    <p style={{ color: '#374151', fontSize: '0.9375rem', fontWeight: '600' }}>點擊選擇名片背面圖片（選填）</p>
                   </div>
                 )}
               </div>
@@ -358,15 +324,13 @@ export default function UploadPage() {
 
             {/* Error */}
             {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+              <div style={{ padding: '0.875rem', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: '0.75rem', color: '#EF4444', fontSize: '0.875rem', fontWeight: '500' }}>
                 {error}
               </div>
             )}
-
-            {/* Submit - removed, done by top button */}
           </form>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
