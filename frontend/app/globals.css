@@ -54,11 +54,36 @@
 [data-theme="dark"] .text-gray-700 { color: var(--text-primary); }
 [data-theme="dark"] .text-gray-900 { color: var(--text-primary); }
 [data-theme="dark"] .text-gray-500 { color: var(--text-secondary); }
+[data-theme="dark"] .text-gray-400 { color: var(--text-secondary); }
 [data-theme="dark"] .border-gray-200 { border-color: var(--border-color); }
 [data-theme="dark"] .border-gray-300 { border-color: var(--border-color); }
 [data-theme="dark"] input::placeholder { color: var(--text-secondary); }
 [data-theme="dark"] .dark\:bg-slate-900 { background-color: var(--bg-primary); }
 [data-theme="dark"] .dark\:text-white { color: var(--text-primary); }
+
+/* Dark mode inline style text color fixes */
+[data-theme="dark"] * [style*="color: #6B7280"] { color: var(--text-secondary) !important; }
+[data-theme="dark"] * [style*="color: #9CA3AF"] { color: var(--text-secondary) !important; }
+[data-theme="dark"] * [style*="color: #374151"] { color: var(--text-primary) !important; }
+[data-theme="dark"] * [style*="color: #111827"] { color: var(--text-primary) !important; }
+[data-theme="dark"] * [style*="color: #2563EB"] { color: #60A5FA !important; }
+[data-theme="dark"] * [style*="color: #059669"] { color: #34D399 !important; }
+[data-theme="dark"] * [style*="color: #10B981"] { color: #34D399 !important; }
+[data-theme="dark"] * [style*="color: #B45309"] { color: #FBBF24 !important; }
+[data-theme="dark"] * [style*="color: #92400E"] { color: #FCD34D !important; }
+[data-theme="dark"] * [style*="color: #D97706"] { color: #FBBF24 !important; }
+[data-theme="dark"] * [style*="color: #F59E0B"] { color: #FCD34D !important; }
+[data-theme="dark"] * [style*="color: #1E40AF"] { color: #818CF8 !important; }
+[data-theme="dark"] * [style*="color: #E5E7EB"] { color: var(--text-secondary) !important; }
+[data-theme="dark"] * [style*="color: #EF4444"] { color: #F87171 !important; }
+[data-theme="dark"] * [style*="color: #DC2626"] { color: #F87171 !important; }
+
+/* Dark mode border fixes */
+[data-theme="dark"] * [style*="border-color: #E5E7EB"] { border-color: var(--border-color) !important; }
+[data-theme="dark"] * [style*="border-color: #cbd5e1"] { border-color: var(--border-color) !important; }
+
+/* Dark mode shadow overrides for cards */
+[data-theme="dark"] .shadow { box-shadow: 0 1px 3px var(--shadow-color); }
 
 @tailwind base;
 @tailwind components;
