@@ -253,3 +253,144 @@ async def delete_user(
     await db.delete(user)
     await db.commit()
     return None
+
+
+# ── Backup & Restore Endpoints ────────────────────────────────────────
+
+import subprocess
+
+BACKUP_DIR = "/backups"
+UPLOADS_DIR = "/app/uploads"
+CONTAINER_NAME = "smartcard_v2_postgres"
+DB_NAME = "smartcard"
+DB_USER = "smartcard"
+
+
+
+@router.post("/backup")
+async def create_backup(admin: User = Depends(get_current_admin)):
+    """手動建立備份（資料庫 + 上傳圖檔）"""
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    date_str = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+
+
+    # 1. 備份資料庫
+    db_dump_path = os.path.join(BACKUP_DIR, f"smartcard_db_{date_str}.dump")
+    try:
+        result = subprocess.run(
+            ["docker", "exec", CONTAINER_NAME, "pg_dump", "-U", DB_USER, "-d", DB_NAME, "-F", "c", "-b"],
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            raise Exception(result.stderr.decode())
+        with open(db_dump_path, "wb") as f:
+            f.write(result.stdout)
+        db_size = os.path.getsize(db_dump_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"資料庫備份失敗: {str(e)}")
+
+
+    # 2. 備份上傳圖檔
+    upload_tar_path = os.path.join(BACKUP_DIR, f"smartcard_uploads_{date_str}.tar.gz")
+    upload_size = 0
+    if os.path.exists(UPLOADS_DIR) and os.listdir(UPLOADS_DIR):
+        try:
+            result = subprocess.run(
+                ["tar", "-czf", upload_tar_path, "-C", os.path.dirname(UPLOADS_DIR), os.path.basename(UPLOADS_DIR)],
+                capture_output=True,
+            )
+            if result.returncode == 0 and os.path.exists(upload_tar_path):
+                upload_size = os.path.getsize(upload_tar_path)
+            else:
+                upload_tar_path = None
+        except Exception:
+            upload_tar_path = None
+
+    return {
+        "message": "備份完成",
+        "db_file": f"smartcard_db_{date_str}.dump",
+        "db_size_mb": round(db_size / (1024 * 1024), 2),
+        "upload_file": f"smartcard_uploads_{date_str}.tar.gz" if upload_tar_path else None,
+        "upload_size_mb": round(upload_size / (1024 * 1024), 2) if upload_size else 0,
+    }
+
+
+@router.get("/backup/list")
+async def list_backups(admin: User = Depends(get_current_admin)):
+    """列出所有備份檔案"""
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    dumps = sorted(glob.glob(os.path.join(BACKUP_DIR, "smartcard_db_*.dump")))
+    tars = sorted(glob.glob(os.path.join(BACKUP_DIR, "smartcard_uploads_*.tar.gz")))
+
+    files = []
+    for f in dumps + tars:
+        stat = os.stat(f)
+        import re
+        match = re.search(r"smartcard_(db|uploads)_(\d{4}-\d{2}-\d{2}_\d{6})\.(dump|tar\.gz)", os.path.basename(f))
+        files.append({
+            "name": os.path.basename(f),
+            "size_mb": round(stat.st_size / (1024 * 1024), 2),
+            "created": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+            "type": "db" if "db_" in f else "uploads",
+        })
+
+
+    return {"files": files}
+
+
+
+@router.get("/backup/download/{filename}")
+async def download_backup(
+    filename: str,
+    admin: User = Depends(get_current_admin),
+):
+    """下載備份檔案"""
+    safe_name = os.path.basename(filename)
+    file_path = os.path.join(BACKUP_DIR, safe_name)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="檔案不存在")
+
+    from starlette.responses import FileResponse
+    return FileResponse(
+        file_path,
+        media_type="application/octet-stream",
+        filename=safe_name,
+    )
+
+
+@router.post("/backup/restore")
+async def restore_backup(
+    db_file: str,
+    upload_file: str | None = None,
+    admin: User = Depends(get_current_admin),
+):
+    """從備份檔案還原（需提供 db dump 檔名，可選上傳圖檔）"""
+    db_path = os.path.join(BACKUP_DIR, os.path.basename(db_file))
+    if not os.path.exists(db_path):
+        raise HTTPException(status_code=404, detail="資料庫備份檔案不存在")
+
+    # 還原資料庫
+    try:
+        result = subprocess.run(
+            ["docker", "exec", "-i", CONTAINER_NAME,
+             "pg_restore", "-U", DB_USER, "-d", DB_NAME, "--clean", "--if-exists"],
+            stdin=open(db_path, "rb"),
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            raise Exception(result.stderr.decode())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"資料庫還原失敗: {str(e)}")
+
+    # 還原上傳圖檔（可選）
+    if upload_file:
+        upload_path = os.path.join(BACKUP_DIR, os.path.basename(upload_file))
+        if os.path.exists(upload_path):
+            subprocess.run(["rm", "-rf", UPLOADS_DIR])
+            os.makedirs(UPLOADS_DIR, exist_ok=True)
+            subprocess.run(
+                ["tar", "-xzf", upload_path, "-C", os.path.dirname(UPLOADS_DIR)],
+                capture_output=True,
+            )
+
+    return {"message": "還原完成", "db_file": db_file, "upload_file": upload_file}

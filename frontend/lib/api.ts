@@ -211,3 +211,22 @@ export default {
   delete: <T>(url: string) => apiRequest<T>(url, { method: 'DELETE' }),
   postForm: <T>(url: string, body: unknown) => apiRequest<T>(url, { method: 'POST', body }),
 };
+
+// Admin Backup API
+export interface BackupFile {
+  name: string;
+  size_mb: number;
+  created: string;
+  type: 'db' | 'uploads';
+}
+
+export const adminBackupApi = {
+  create: () => apiRequest<{ message: string; db_file: string; db_size_mb: number; upload_file?: string; upload_size_mb: number }>('/api/v1/admin/backup', { method: 'POST' }),
+  list: () => apiRequest<{ files: BackupFile[] }>('/api/v1/admin/backup/list'),
+  downloadUrl: (filename: string) => `${API_BASE_URL}/api/v1/admin/backup/download/${encodeURIComponent(filename)}`,
+  restore: (db_file: string, upload_file?: string) =>
+    apiRequest<{ message: string; db_file: string; upload_file?: string }>('/api/v1/admin/backup/restore', {
+      method: 'POST',
+      body: { db_file, upload_file },
+    }),
+};

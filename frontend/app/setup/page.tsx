@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { adminBackupApi, BackupFile } from '@/lib/api';
 
 interface SystemStats {
   total_cards: number;
@@ -30,7 +31,7 @@ interface User {
 export default function SetupPage() {
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
-  const [activeTab, setActiveTab] = useState<'stats' | 'users'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'backup'>('stats');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddUser, setShowAddUser] = useState(false);
@@ -168,6 +169,7 @@ export default function SetupPage() {
           {[
             { key: 'stats', label: '📊 系統統計' },
             { key: 'users', label: '👥 帳戶管理' },
+            { key: 'backup', label: '💾 備份管理' },
           ].map((tab) => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
               style={{ padding: '0.625rem 1rem', borderRadius: '0.625rem', fontWeight: '600', fontSize: '0.8125rem', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', background: activeTab === tab.key ? 'linear-gradient(-45deg, #667eea, #764ba2)' : 'white', color: activeTab === tab.key ? 'white' : '#374151', boxShadow: activeTab === tab.key ? '0 4px 12px rgba(102,126,234,0.3)' : '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -308,11 +310,212 @@ export default function SetupPage() {
             ))}
           </div>
         )}
+
+        {/* Backup Management */}
+        {activeTab === 'backup' && (
+          <BackupTab token={token} />
+        )}
       </main>
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
+    </div>
+  );
+}
+
+// ── Backup Tab Component ──────────────────────────────────────────────
+
+function BackupTab({ token }: { token: string }) {
+  const [files, setFiles] = useState<BackupFile[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState<'ok' | 'err'>('ok');
+  const [showRestoreForm, setShowRestoreForm] = useState(false);
+  const [restoreDbFile, setRestoreDbFile] = useState('');
+  const [restoreUploadFile, setRestoreUploadFile] = useState('');
+
+  useEffect(() => {
+    loadBackups();
+  }, []);
+
+  async function loadBackups() {
+    setLoading(true);
+    try {
+      const data = await adminBackupApi.list();
+      setFiles(data.files);
+    } catch {
+      setMsg('載入備份失敗');
+      setMsgType('err');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCreate() {
+    setCreating(true);
+    setMsg('');
+    try {
+      const res = await adminBackupApi.create();
+      setMsg(`✅ 備份完成：DB ${res.db_size_mb}MB`);
+      setMsgType('ok');
+      await loadBackups();
+    } catch (e) {
+      setMsg(`❌ 備份失敗: ${e instanceof Error ? e.message : String(e)}`);
+      setMsgType('err');
+    } finally {
+      setCreating(false);
+    }
+  }
+
+
+  function handleDownload(filename: string) {
+    const url = adminBackupApi.downloadUrl(filename);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  async function handleRestore() {
+    if (!restoreDbFile) {
+      setMsg('❌ 請選擇要還原的資料庫備份檔案');
+      setMsgType('err');
+      return;
+    }
+    setRestoring(restoreDbFile);
+    setMsg('');
+    try {
+      await adminBackupApi.restore(restoreDbFile, restoreUploadFile || undefined);
+      setMsg('✅ 還原完成');
+      setMsgType('ok');
+      setShowRestoreForm(false);
+      setRestoreDbFile('');
+      setRestoreUploadFile('');
+    } catch (e) {
+      setMsg(`❌ 還原失敗: ${e instanceof Error ? e.message : String(e)}`);
+      setMsgType('err');
+    } finally {
+      setRestoring(null);
+    }
+  }
+
+  const dbFiles = files.filter((f) => f.type === 'db');
+  const uploadFiles = files.filter((f) => f.type === 'uploads');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {/* Message */}
+      {msg && (
+        <div style={{ background: msgType === 'ok' ? 'var(--success-bg, #D1FAE5)' : 'var(--error-bg, #FEE2E2)', border: `1px solid ${msgType === 'ok' ? '#A7F3D0' : '#FECACA'}`, borderRadius: '0.75rem', padding: '0.875rem 1rem', color: msgType === 'ok' ? '#065F46' : '#991B1B', fontWeight: '500', fontSize: '0.875rem' }}>
+          {msg}
+        </div>
+      )}
+
+
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <button onClick={handleCreate} disabled={creating}
+          style={{ padding: '0.75rem 1.25rem', background: creating ? '#9CA3AF' : '#10B981', color: 'white', fontWeight: '600', borderRadius: '0.75rem', border: 'none', cursor: creating ? 'not-allowed' : 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.375rem', transition: 'all 0.2s' }}
+          onMouseOver={(e) => { if (!creating) { (e.currentTarget as HTMLButtonElement).style.background = '#059669'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; } }}
+          onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = creating ? '#9CA3AF' : '#10B981'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}>
+          {creating ? '⏳ 建立中...' : '💾 手動備份'}
+        </button>
+
+        <button onClick={() => setShowRestoreForm(!showRestoreForm)}
+          style={{ padding: '0.75rem 1.25rem', background: showRestoreForm ? '#E5E7EB' : '#3B82F6', color: showRestoreForm ? '#374151' : 'white', fontWeight: '600', borderRadius: '0.75rem', border: 'none', cursor: 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.375rem', transition: 'all 0.2s' }}>
+          {showRestoreForm ? '✕ 取消還原' : '🔄 匯入還原'}
+        </button>
+      </div>
+
+
+      {/* Restore Form */}
+      {showRestoreForm && (
+        <div style={{ background: 'white', borderRadius: '1rem', padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>🔄 匯入還原</h3>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>⚠️ 警告：還原會覆蓋目前的資料庫資料</p>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '0.375rem' }}>選擇資料庫備份檔 (.dump)</label>
+            <select value={restoreDbFile} onChange={(e) => setRestoreDbFile(e.target.value)}
+              style={{ width: '100%', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--input-bg)', color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+              <option value="">-- 請選擇 --</option>
+              {dbFiles.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.size_mb}MB)</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '0.375rem' }}>選擇圖檔備份 (選填, .tar.gz)</label>
+            <select value={restoreUploadFile} onChange={(e) => setRestoreUploadFile(e.target.value)}
+              style={{ width: '100%', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--input-bg)', color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+              <option value="">-- 不還原圖檔 --</option>
+              {uploadFiles.map((f) => <option key={f.name} value={f.name}>{f.name} ({f.size_mb}MB)</option>)}
+            </select>
+          </div>
+
+          <button onClick={handleRestore} disabled={!!restoring}
+            style={{ padding: '0.75rem', background: restoring ? '#9CA3AF' : '#EF4444', color: 'white', fontWeight: '600', borderRadius: '0.75rem', border: 'none', cursor: restoring ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>
+            {restoring ? '⏳ 還原中...' : '⚠️ 確認還原'}
+          </button>
+        </div>
+      )}
+
+      {/* Backup File List */}
+      <div style={{ background: 'white', borderRadius: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+        <div style={{ padding: '1rem 1.25rem', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>📦 備份檔案列表</h3>
+          {loading ? <p style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>載入中...</p> : <p style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem', marginTop: '0.25rem' }}>共 {dbFiles.length} 個資料庫備份，{uploadFiles.length} 個圖檔備份</p>}
+        </div>
+
+        {!loading && dbFiles.length === 0 && (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>目前沒有備份檔案</div>
+        )}
+
+
+        {!loading && dbFiles.map((f) => (
+          <div key={f.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border-color)', gap: '0.75rem' }}>
+            <div>
+              <div style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-primary)', wordBreak: 'break-all' }}>{f.name}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>{f.created} | {f.size_mb} MB</div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+              <button onClick={() => handleDownload(f.name)}
+                style={{ padding: '0.375rem 0.75rem', background: '#10B981', color: 'white', fontWeight: '600', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>
+                📥 下載
+              </button>
+              <button onClick={() => { setRestoreDbFile(f.name); setShowRestoreForm(true); }}
+                style={{ padding: '0.375rem 0.75rem', background: '#3B82F6', color: 'white', fontWeight: '600', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>
+                🔄 還原
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {!loading && uploadFiles.length > 0 && (
+          <>
+            <div style={{ padding: '0.5rem 1.25rem', background: '#F9FAFB', fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>圖檔備份</div>
+            {uploadFiles.map((f) => (
+              <div key={f.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border-color)', gap: '0.75rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-primary)', wordBreak: 'break-all' }}>{f.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>{f.created} | {f.size_mb} MB</div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                  <button onClick={() => handleDownload(f.name)}
+                    style={{ padding: '0.375rem 0.75rem', background: '#10B981', color: 'white', fontWeight: '600', borderRadius: '0.5rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>
+                    📥 下載
+                  </button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }
