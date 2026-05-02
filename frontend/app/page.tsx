@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation';
 'use client';
 
 import { useEffect } from 'react';
@@ -10,8 +9,6 @@ export default function Home() {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    // 如果已登入，直接跳轉到 /cards
-    // 如果未登入，跳轉到 /login
     if (isAuthenticated()) {
       router.replace('/cards');
     } else {
@@ -19,7 +16,6 @@ export default function Home() {
     }
   }, [router, isAuthenticated]);
 
-  // Loading 畫面
   return (
     <div style={{
       minHeight: '100vh',
