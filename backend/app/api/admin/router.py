@@ -258,9 +258,10 @@ async def delete_user(
 # ── Backup & Restore Endpoints ────────────────────────────────────────
 
 import subprocess
+import os
 
-BACKUP_DIR = "/backups"
-UPLOADS_DIR = "/app/uploads"
+BACKUP_DIR_HOST = "/Users/taeyeon093.bot/.openclaw/workspace/smartcard-db-docker/backups"
+BACKUP_DIR_CONTAINER = "/backups"
 CONTAINER_NAME = "smartcard_v2_postgres"
 DB_NAME = "smartcard"
 DB_USER = "smartcard"
@@ -269,16 +270,16 @@ DB_USER = "smartcard"
 
 @router.post("/backup")
 async def create_backup(admin: User = Depends(get_current_admin)):
-    """手動建立備份（資料庫 + 上傳圖檔）"""
-    os.makedirs(BACKUP_DIR, exist_ok=True)
+    """手動建立備份（資料庫 + 上傳圖檔），在主機執行避免容器內無 docker 權限"""
+    os.makedirs(BACKUP_DIR_HOST, exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
-
-    # 1. 備份資料庫
-    db_dump_path = os.path.join(BACKUP_DIR, f"smartcard_db_{date_str}.dump")
+    # 1. 從主機執行 pg_dump（需先建立 port forwarding 或用 docker run）
+    db_dump_path = os.path.join(BACKUP_DIR_HOST, f"smartcard_db_{date_str}.dump")
     try:
         result = subprocess.run(
-            ["docker", "exec", CONTAINER_NAME, "pg_dump", "-U", DB_USER, "-d", DB_NAME, "-F", "c", "-b"],
+            ["docker", "exec", "-i", CONTAINER_NAME,
+             "pg_dump", "-U", DB_USER, "-d", DB_NAME, "-F", "c", "-b"],
             capture_output=True,
         )
         if result.returncode != 0:
@@ -289,14 +290,14 @@ async def create_backup(admin: User = Depends(get_current_admin)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"資料庫備份失敗: {str(e)}")
 
-
-    # 2. 備份上傳圖檔
-    upload_tar_path = os.path.join(BACKUP_DIR, f"smartcard_uploads_{date_str}.tar.gz")
+    # 2. 備份上傳圖檔（uploads 在主機 volumes/ 目錄）
+    uploads_host_dir = "/Users/taeyeon093.bot/.openclaw/workspace/smartcard-db-docker/volumes/uploads"
+    upload_tar_path = os.path.join(BACKUP_DIR_HOST, f"smartcard_uploads_{date_str}.tar.gz")
     upload_size = 0
-    if os.path.exists(UPLOADS_DIR) and os.listdir(UPLOADS_DIR):
+    if os.path.exists(uploads_host_dir) and os.listdir(uploads_host_dir):
         try:
             result = subprocess.run(
-                ["tar", "-czf", upload_tar_path, "-C", os.path.dirname(UPLOADS_DIR), os.path.basename(UPLOADS_DIR)],
+                ["tar", "-czf", upload_tar_path, "-C", os.path.dirname(uploads_host_dir), os.path.basename(uploads_host_dir)],
                 capture_output=True,
             )
             if result.returncode == 0 and os.path.exists(upload_tar_path):
@@ -318,22 +319,19 @@ async def create_backup(admin: User = Depends(get_current_admin)):
 @router.get("/backup/list")
 async def list_backups(admin: User = Depends(get_current_admin)):
     """列出所有備份檔案"""
-    os.makedirs(BACKUP_DIR, exist_ok=True)
-    dumps = sorted(glob.glob(os.path.join(BACKUP_DIR, "smartcard_db_*.dump")))
-    tars = sorted(glob.glob(os.path.join(BACKUP_DIR, "smartcard_uploads_*.tar.gz")))
+    os.makedirs(BACKUP_DIR_HOST, exist_ok=True)
+    dumps = sorted(glob.glob(os.path.join(BACKUP_DIR_HOST, "smartcard_db_*.dump")))
+    tars = sorted(glob.glob(os.path.join(BACKUP_DIR_HOST, "smartcard_uploads_*.tar.gz")))
 
     files = []
     for f in dumps + tars:
         stat = os.stat(f)
-        import re
-        match = re.search(r"smartcard_(db|uploads)_(\d{4}-\d{2}-\d{2}_\d{6})\.(dump|tar\.gz)", os.path.basename(f))
         files.append({
             "name": os.path.basename(f),
             "size_mb": round(stat.st_size / (1024 * 1024), 2),
             "created": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
             "type": "db" if "db_" in f else "uploads",
         })
-
 
     return {"files": files}
 
@@ -346,7 +344,7 @@ async def download_backup(
 ):
     """下載備份檔案"""
     safe_name = os.path.basename(filename)
-    file_path = os.path.join(BACKUP_DIR, safe_name)
+    file_path = os.path.join(BACKUP_DIR_HOST, safe_name)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="檔案不存在")
 
@@ -365,7 +363,7 @@ async def restore_backup(
     admin: User = Depends(get_current_admin),
 ):
     """從備份檔案還原（需提供 db dump 檔名，可選上傳圖檔）"""
-    db_path = os.path.join(BACKUP_DIR, os.path.basename(db_file))
+    db_path = os.path.join(BACKUP_DIR_HOST, os.path.basename(db_file))
     if not os.path.exists(db_path):
         raise HTTPException(status_code=404, detail="資料庫備份檔案不存在")
 
@@ -384,12 +382,13 @@ async def restore_backup(
 
     # 還原上傳圖檔（可選）
     if upload_file:
-        upload_path = os.path.join(BACKUP_DIR, os.path.basename(upload_file))
+        upload_path = os.path.join(BACKUP_DIR_HOST, os.path.basename(upload_file))
         if os.path.exists(upload_path):
-            subprocess.run(["rm", "-rf", UPLOADS_DIR])
-            os.makedirs(UPLOADS_DIR, exist_ok=True)
+            uploads_host_dir = "/Users/taeyeon093.bot/.openclaw/workspace/smartcard-db-docker/volumes/uploads"
+            subprocess.run(["rm", "-rf", uploads_host_dir])
+            os.makedirs(uploads_host_dir, exist_ok=True)
             subprocess.run(
-                ["tar", "-xzf", upload_path, "-C", os.path.dirname(UPLOADS_DIR)],
+                ["tar", "-xzf", upload_path, "-C", os.path.dirname(uploads_host_dir)],
                 capture_output=True,
             )
 
