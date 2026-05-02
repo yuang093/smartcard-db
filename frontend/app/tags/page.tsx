@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { tagsApi, Tag } from '@/lib/api';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function TagsPage() {
   const { isAuthenticated, loading, logout } = useAuth();
@@ -112,9 +113,9 @@ export default function TagsPage() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F9FAFB' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-secondary)' }}>
       {/* Header */}
-      <header style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderBottom: '1px solid #E5E7EB' }}>
+      <header style={{ background: 'var(--header-bg)', boxShadow: '0 1px 3px var(--shadow-color)', borderBottom: '1px solid var(--header-border)' }}>
         <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '1.5rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', background: 'linear-gradient(-45deg, #667eea, #764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -123,9 +124,10 @@ export default function TagsPage() {
                 <line x1="7" y1="7" x2="7.01" y2="7"/>
               </svg>
             </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>標籤管理</h1>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--text-primary)' }}>標籤管理</h1>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <ThemeToggle />
             <button
               onClick={() => router.push('/cards')}
               style={{ padding: '0.625rem 1rem', background: '#3B82F6', color: 'white', fontWeight: '600', borderRadius: '0.75rem', border: 'none', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.875rem' }}

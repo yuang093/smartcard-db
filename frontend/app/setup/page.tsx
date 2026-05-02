@@ -7,6 +7,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface SystemStats {
   total_cards: number;
@@ -136,17 +137,20 @@ export default function SetupPage() {
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F9FAFB' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-secondary)' }}>
       {/* Header */}
-      <header style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderBottom: '1px solid #E5E7EB' }}>
+      <header style={{ background: 'var(--header-bg)', boxShadow: '0 1px 3px var(--shadow-color)', borderBottom: '1px solid var(--header-border)' }}>
         <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
             <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.625rem', background: 'linear-gradient(-45deg, #667eea, #764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </div>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#111827' }}>管理後台</h1>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-primary)' }}>管理後台</h1>
           </div>
-          <button onClick={() => window.location.href = '/cards'} style={{ padding: '0.5rem 0.875rem', background: '#6B7280', color: 'white', fontWeight: '600', borderRadius: '0.625rem', border: 'none', cursor: 'pointer', fontSize: '0.8125rem' }}>返回名片</button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <ThemeToggle />
+            <button onClick={() => window.location.href = '/cards'} style={{ padding: '0.5rem 0.875rem', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: '600', borderRadius: '0.625rem', border: '1px solid var(--border-color)', cursor: 'pointer', fontSize: '0.8125rem' }}>← 返回名片</button>
+          </div>
         </div>
       </header>
 
