@@ -61,29 +61,29 @@
 [data-theme="dark"] .dark\:bg-slate-900 { background-color: var(--bg-primary); }
 [data-theme="dark"] .dark\:text-white { color: var(--text-primary); }
 
-/* Dark mode inline style text color fixes */
-[data-theme="dark"] * [style*="color: #6B7280"] { color: var(--text-secondary) !important; }
-[data-theme="dark"] * [style*="color: #9CA3AF"] { color: var(--text-secondary) !important; }
-[data-theme="dark"] * [style*="color: #374151"] { color: var(--text-primary) !important; }
-[data-theme="dark"] * [style*="color: #111827"] { color: var(--text-primary) !important; }
-[data-theme="dark"] * [style*="color: #2563EB"] { color: #60A5FA !important; }
-[data-theme="dark"] * [style*="color: #059669"] { color: #34D399 !important; }
-[data-theme="dark"] * [style*="color: #10B981"] { color: #34D399 !important; }
-[data-theme="dark"] * [style*="color: #B45309"] { color: #FBBF24 !important; }
-[data-theme="dark"] * [style*="color: #92400E"] { color: #FCD34D !important; }
-[data-theme="dark"] * [style*="color: #D97706"] { color: #FBBF24 !important; }
-[data-theme="dark"] * [style*="color: #F59E0B"] { color: #FCD34D !important; }
-[data-theme="dark"] * [style*="color: #1E40AF"] { color: #818CF8 !important; }
-[data-theme="dark"] * [style*="color: #E5E7EB"] { color: var(--text-secondary) !important; }
-[data-theme="dark"] * [style*="color: #EF4444"] { color: #F87171 !important; }
-[data-theme="dark"] * [style*="color: #DC2626"] { color: #F87171 !important; }
+/* Dark mode card list specific overrides */
+[data-theme="dark"] .bg-white.rounded-lg.shadow,
+[data-theme="dark"] [class*="bg-white"][class*="rounded"][class*="shadow"] {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-color);
+}
 
-/* Dark mode border fixes */
-[data-theme="dark"] * [style*="border-color: #E5E7EB"] { border-color: var(--border-color) !important; }
-[data-theme="dark"] * [style*="border-color: #cbd5e1"] { border-color: var(--border-color) !important; }
+/* Ensure card text is readable in dark mode */
+[data-theme="dark"] .text-gray-600 { color: var(--text-primary) !important; }
+[data-theme="dark"] .text-gray-500 { color: var(--text-secondary) !important; }
+[data-theme="dark"] .text-gray-400 { color: var(--text-secondary) !important; }
 
-/* Dark mode shadow overrides for cards */
-[data-theme="dark"] .shadow { box-shadow: 0 1px 3px var(--shadow-color); }
+/* Green/Blue/Purple button text overrides for dark mode cards */
+[data-theme="dark"] [style*="color: #10B981"], [data-theme="dark"] .text-green-600 { color: #34D399 !important; }
+[data-theme="dark"] [style*="color: #3B82F6"], [data-theme="dark"] .text-blue-600 { color: #60A5FA !important; }
+[data-theme="dark"] [style*="color: #6366F1"], [data-theme="dark"] .text-purple-600 { color: #A5B4FC !important; }
+[data-theme="dark"] [style*="color: #EF4444"], [data-theme="dark"] .text-red-600 { color: #F87171 !important; }
+
+/* Hover states for buttons in cards */
+[data-theme="dark"] .hover\:text-green-800:hover { color: #4ADE80 !important; }
+[data-theme="dark"] .hover\:text-blue-800:hover { color: #93C5FD !important; }
+[data-theme="dark"] .hover\:text-purple-800:hover { color: #C4B5FD !important; }
+[data-theme="dark"] .hover\:text-red-800:hover { color: #FCA5A5 !important; }
 
 @tailwind base;
 @tailwind components;
