@@ -254,16 +254,27 @@ async def delete_user(
 
 @router.post("/backup")
 async def create_backup(admin: User = Depends(get_current_admin)):
-    """手動建立備份（資料庫 + 上傳圖檔）
-    從主機執行 docker exec，繞過容器內無 docker 的限制"""
+    """手動建立備份（資料庫 + 上傳圖檔），直接呼叫主機 docker"""
+    import platform
+    is_darwin = platform.system() == "Darwin"
+
+    # 主機 docker 路徑（Mac mini 直接用 docker）
+    docker_cmd = "/usr/local/bin/docker" if is_darwin else "docker"
+
+    # 嘗試找到 docker
+    import shutil
+    docker_path = shutil.which("docker")
+    if docker_path:
+        docker_cmd = docker_path
+
     os.makedirs(BACKUP_DIR, exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
-    # 1. 備份資料庫
+    # 1. 備份資料庫（直接從主機執行 docker exec）
     db_dump_path = os.path.join(BACKUP_DIR, f"smartcard_db_{date_str}.dump")
     try:
         proc = subprocess.Popen(
-            ["docker", "exec", "-i", CONTAINER_NAME,
+            [docker_cmd, "exec", "-i", CONTAINER_NAME,
              "pg_dump", "-U", DB_USER, "-d", DB_NAME, "-F", "c", "-b"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -349,6 +360,10 @@ async def restore_backup(
     admin: User = Depends(get_current_admin),
 ):
     """從備份檔案還原（需提供 db dump 檔名，可選上傳圖檔）"""
+    # 取得主機 docker 路徑
+    import shutil, platform
+    docker_cmd = shutil.which("docker") or ("/usr/local/bin/docker" if platform.system() == "Darwin" else "docker")
+
     db_path = os.path.join(BACKUP_DIR, os.path.basename(db_file))
     if not os.path.exists(db_path):
         raise HTTPException(status_code=404, detail="資料庫備份檔案不存在")
@@ -356,7 +371,7 @@ async def restore_backup(
     # 還原資料庫
     try:
         result = subprocess.run(
-            ["docker", "exec", "-i", CONTAINER_NAME,
+            [docker_cmd, "exec", "-i", CONTAINER_NAME,
              "pg_restore", "-U", DB_USER, "-d", DB_NAME, "--clean", "--if-exists"],
             stdin=open(db_path, "rb"),
             capture_output=True,
