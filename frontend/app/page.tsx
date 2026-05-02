@@ -1,16 +1,37 @@
 import { redirect } from 'next/navigation';
-import { useAuth } from './lib/auth';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
 
 export default function Home() {
-  // This is a server component - we check auth on client side via redirect
-  // For now, just render a simple landing
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    // 如果已登入，直接跳轉到 /cards
+    // 如果未登入，跳轉到 /login
+    if (isAuthenticated()) {
+      router.replace('/cards');
+    } else {
+      router.replace('/login');
+    }
+  }, [router, isAuthenticated]);
+
+  // Loading 畫面
   return (
-    <div style={{ padding: '2rem', textAlign: 'center' }}>
-      <h1>SmartCard DB</h1>
-      <p>智慧名片管理系統</p>
-      <div style={{ marginTop: '1rem' }}>
-        <a href="/login" style={{ marginRight: '1rem', color: 'blue' }}>登入</a>
-        <a href="/register" style={{ color: 'green' }}>註冊</a>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c)',
+      backgroundSize: '400% 400%',
+      animation: 'gradientShift 10s ease infinite',
+    }}>
+      <div style={{ textAlign: 'center', color: 'white' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📇</div>
+        <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>SmartCard DB</div>
+        <div style={{ marginTop: '0.5rem', opacity: 0.8 }}>載入中...</div>
       </div>
     </div>
   );
