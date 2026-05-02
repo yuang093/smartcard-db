@@ -6,15 +6,17 @@ import { useAuth } from '@/lib/auth';
 
 export default function Home() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      router.replace('/cards');
-    } else {
-      router.replace('/login');
+    if (!loading) {
+      if (isAuthenticated) {
+        router.replace('/cards');
+      } else {
+        router.replace('/login');
+      }
     }
-  }, [router, isAuthenticated]);
+  }, [loading, isAuthenticated, router]);
 
   return (
     <div style={{
