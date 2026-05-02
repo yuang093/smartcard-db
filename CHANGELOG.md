@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.3.0] - 2026-05-03
+
+### Added
+- **Phase 4.5: UI 美化 (UI Beautification)** — 全系統視覺煥然一新
+  - 登入/註冊頁面：漸層背景 + 浮動光斑動畫 + 玻璃拟态卡片
+  - Header 圖示化：加入品牌 icon 與統一風格按鈕
+  - 全系統 Hover 效果：按鈕 hover 變色 + 上浮 transform
+  - 統一 inline style 樣式系統（移除 Tailwind className）
+  - Emoji icon 統一納入按鈕（🎵 登出、📥 匯出、🏷️ 標籤等）
+
+### Changed
+- 所有頁面全面採用 inline style 統一樣式系統
+- 手機版完整響應式優化（Header / 詳情 Modal / 批次操作）
+
+### Fixed
+- Admin 頁面 `/setup` UI 優化（移除巢狀 JSX 解析錯誤）
+- `frontend/package.json` 新增 `standalone` output 模式支援
+
+### Removed
+- 移除所有 `.bak` / `.new` 備份檔案
+
 ## [v1.2.1] - 2026-05-02
 
 ### Fixed
