@@ -35,8 +35,17 @@ export default function ReviewPage() {
     email: "",
     address: "",
   });
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Fetch all tags
+  useEffect(() => {
+    api.get("/api/v1/tags").then((res) => {
+      setAllTags(res.data || []);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("parsed_card");
@@ -67,8 +76,23 @@ export default function ReviewPage() {
     }
   }, [router]);
 
+  // When allTags loads, auto-select tags matching AI suggestions
+  useEffect(() => {
+    if (!data?.suggested_tags?.length || !allTags.length) return;
+    const matched = allTags
+      .filter((t) => data.suggested_tags!.some((s) => t.name.toLowerCase().includes(s.toLowerCase())))
+      .map((t) => t.id);
+    setSelectedTagIds(matched);
+  }, [data, allTags]);
+
   function handleChange(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function toggleTag(tagId: string) {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -80,11 +104,11 @@ export default function ReviewPage() {
     setLoading(true);
     setError("");
     try {
-      const result = await api.post("/api/v1/cards", {
+      await api.post("/api/v1/cards", {
         ...form,
         front_image_url: imageUrls.front || null,
         back_image_url: imageUrls.back || null,
-        tag_ids: [],
+        tag_ids: selectedTagIds,
       });
       sessionStorage.removeItem("parsed_card");
       toast.success("名片已儲存！");
@@ -178,7 +202,7 @@ export default function ReviewPage() {
             </div>
           )}
 
-          {/* Suggested tags */}
+          {/* AI suggested tags */}
           {data.suggested_tags && data.suggested_tags.length > 0 && (
             <div style={{ marginBottom: '1.5rem', padding: '0.875rem', background: 'rgba(102, 126, 234, 0.08)', borderRadius: '1rem', border: '1px solid rgba(102, 126, 234, 0.2)' }}>
               <p style={{ fontSize: '0.6875rem', color: '#667eea', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>✨ AI 建議標籤</p>
@@ -188,6 +212,39 @@ export default function ReviewPage() {
                     {tag}
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tag selection (all tags) */}
+          {allTags.length > 0 && (
+            <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--input-bg)', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>🏷️ 選擇標籤</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {allTags.map((tag) => {
+                  const selected = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      style={{
+                        padding: '0.375rem 0.875rem',
+                        borderRadius: '9999px',
+                        fontSize: '0.8125rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        border: `1.5px solid ${selected ? tag.color : 'var(--border-color)'}`,
+                        background: selected ? tag.color + '20' : 'transparent',
+                        color: selected ? tag.color : 'var(--text-secondary)',
+                        transition: 'all 0.2s',
+                        transform: selected ? 'scale(1.05)' : 'scale(1)',
+                      }}
+                    >
+                      {selected ? '✓ ' : ''}{tag.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
