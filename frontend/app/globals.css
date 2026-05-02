@@ -1,3 +1,65 @@
+/* Dark mode variables */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f4f6;
+  --bg-card: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --input-bg: #ffffff;
+  --input-border: #e5e7eb;
+  --header-bg: #ffffff;
+  --header-border: #e5e7eb;
+  --modal-overlay: rgba(0, 0, 0, 0.5);
+  --success-bg: #dcfce7;
+  --error-bg: #fee2e2;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --input-bg: #334155;
+  --input-border: #475569;
+  --header-bg: #1e293b;
+  --header-border: #334155;
+  --modal-overlay: rgba(0, 0, 0, 0.7);
+  --success-bg: #14532d;
+  --error-bg: #7f1d1d;
+}
+
+/* Dark mode base styles */
+[data-theme="dark"] body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-primary);
+}
+
+/* Dark mode Tailwind class fallbacks */
+[data-theme="dark"] .bg-gray-100 { background-color: var(--bg-secondary); }
+[data-theme="dark"] .bg-white { background-color: var(--bg-card); }
+[data-theme="dark"] .bg-gray-50 { background-color: var(--bg-secondary); }
+[data-theme="dark"] .text-gray-700 { color: var(--text-primary); }
+[data-theme="dark"] .text-gray-900 { color: var(--text-primary); }
+[data-theme="dark"] .text-gray-500 { color: var(--text-secondary); }
+[data-theme="dark"] .border-gray-200 { border-color: var(--border-color); }
+[data-theme="dark"] .border-gray-300 { border-color: var(--border-color); }
+[data-theme="dark"] input::placeholder { color: var(--text-secondary); }
+[data-theme="dark"] .dark\:bg-slate-900 { background-color: var(--bg-primary); }
+[data-theme="dark"] .dark\:text-white { color: var(--text-primary); }
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
