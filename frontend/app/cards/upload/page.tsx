@@ -371,13 +371,13 @@ export default function UploadPage() {
                     style={{ display: 'block', width: '100%', height: 'auto', userSelect: 'none', pointerEvents: 'none' }}
                     onLoad={(e) => setFrontContW((e.target as HTMLImageElement).clientWidth)}
                   />
-                  {frontContW > 0 && (
+                  {frontContW > 0 && frontImg.naturalW > 0 && (
                     <div style={{ position: 'absolute', inset: 0 }}>
                       <CropOverlay
                         crop={frontCrop}
                         onCropChange={setFrontCrop}
                         containerW={frontContW}
-                        containerH={frontImg.naturalH / frontImg.naturalW * frontContW}
+                        containerH={Math.round(frontImg.naturalH / frontImg.naturalW * frontContW)}
                       />
                     </div>
                   )}
@@ -410,13 +410,13 @@ export default function UploadPage() {
                     style={{ display: 'block', width: '100%', height: 'auto', userSelect: 'none', pointerEvents: 'none' }}
                     onLoad={(e) => setBackContW((e.target as HTMLImageElement).clientWidth)}
                   />
-                  {backContW > 0 && (
+                  {backContW > 0 && backImg.naturalW > 0 && (
                     <div style={{ position: 'absolute', inset: 0 }}>
                       <CropOverlay
                         crop={backCrop}
                         onCropChange={setBackCrop}
                         containerW={backContW}
-                        containerH={backImg.naturalH / backImg.naturalW * backContW}
+                        containerH={Math.round(backImg.naturalH / backImg.naturalW * backContW)}
                       />
                     </div>
                   )}
