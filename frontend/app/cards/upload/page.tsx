@@ -74,13 +74,15 @@ async function compressImage(file: File, maxSizeBytes: number = 500 * 1024): Pro
       canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
       const tryCompress = (q: number): Promise<Blob | null> =>
         new Promise((res) => canvas.toBlob((b) => res(b), 'image/jpeg', q));
-      for (let q = 0.85; q >= 0.4; q -= 0.1) {
-        const b = await tryCompress(q);
-        if (b && b.size <= maxSizeBytes) { resolve(new File([b], file.name, { type: 'image/jpeg' })); return; }
-      }
-      const b = await tryCompress(0.4);
-      if (b) resolve(new File([b], file.name, { type: 'image/jpeg' }));
-      else resolve(file);
+      (async () => {
+        for (let q = 0.85; q >= 0.4; q -= 0.1) {
+          const b = await tryCompress(q);
+          if (b && b.size <= maxSizeBytes) { resolve(new File([b], file.name, { type: 'image/jpeg' })); return; }
+        }
+        const b = await tryCompress(0.4);
+        if (b) resolve(new File([b], file.name, { type: 'image/jpeg' }));
+        else resolve(file);
+      })();
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
     img.src = url;
