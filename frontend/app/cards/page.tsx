@@ -52,6 +52,9 @@ export default function CardsPage() {
   const [pendingCard, setPendingCard] = useState<Partial<Card> | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailCard, setDetailCard] = useState<Card | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageModalSrc, setImageModalSrc] = useState('');
+  const [imageModalLabel, setImageModalLabel] = useState('');
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>('');
@@ -372,11 +375,24 @@ export default function CardsPage() {
             </button>
             <button
               onClick={handleLogout}
-              style={{ padding: '0.625rem 1rem', background: '#EF4444', color: 'white', fontWeight: '600', borderRadius: '0.75rem', border: 'none', cursor: 'pointer', fontSize: '0.8125rem', transition: 'all 0.2s' }}
-              onMouseOver={(e) => { e.currentTarget.style.background = '#DC2626'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = '#EF4444'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              style={{
+                padding: '0.5rem 0.875rem',
+                background: '#374151',
+                color: 'rgba(255,255,255,0.75)',
+                fontWeight: '500',
+                borderRadius: '0.5rem',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.8125rem',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#1F2937'; e.currentTarget.style.color = 'white'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#374151'; e.currentTarget.style.color = 'rgba(255,255,255,0.75)'; }}
             >
-              🚪 登出
+              登出
             </button>
           </div>
         </div>
@@ -384,43 +400,105 @@ export default function CardsPage() {
 
       <main style={{ maxWidth: '80rem', margin: '0 auto', padding: '1.5rem' }}>
         {/* Search Bar */}
-        <div style={{ background: 'white', borderRadius: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05)', padding: '1.5rem', marginBottom: '1.5rem' }}>
-          <form onSubmit={handleSearch} className="flex flex-wrap gap-2 sm:gap-4">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜尋姓名、公司、職稱..."
-              className="flex-1 min-w-[120px] shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            />
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 sm:px-4 rounded text-sm sm:text-base"
-            >
-              搜尋
-            </button>
-            <button
-              type="button"
-              onClick={() => { setSearch(''); setSelectedTagFilter(''); loadCards(); }}
-              className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-3 sm:px-4 rounded text-sm sm:text-base"
-            >
-              清除
-            </button>
-            {allTags.length > 0 && (
-              <select
-                value={selectedTagFilter}
-                onChange={(e) => {
-                  setSelectedTagFilter(e.target.value);
-                  loadCards();
+        <div style={{
+          background: 'var(--bg-card)',
+          borderRadius: '1rem',
+          boxShadow: '0 1px 3px var(--shadow-color)',
+          border: '1px solid var(--border-color)',
+          padding: '1.25rem 1.5rem',
+          marginBottom: '1.5rem',
+        }}>
+          <form onSubmit={handleSearch} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: '1 1 240px' }}>
+              <svg style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="搜尋姓名、公司、職稱..."
+                style={{
+                  width: '100%',
+                  padding: '0.625rem 0.875rem 0.625rem 2.5rem',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
                 }}
-                className="shadow border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline text-sm"
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#667EEA'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="submit"
+                style={{
+                  padding: '0.625rem 1.25rem',
+                  background: 'linear-gradient(135deg, #667EEA, #764BA2)',
+                  color: 'white',
+                  fontWeight: '600',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 2px 8px rgba(102,126,234,0.3)',
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(102,126,234,0.4)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(102,126,234,0.3)'; }}
               >
-                <option value="">全部標籤</option>
-                {allTags.map((tag) => (
-                  <option key={tag.id} value={tag.id}>{tag.name}</option>
-                ))}
-              </select>
-            )}
+                搜尋
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setSelectedTagFilter(''); loadCards(); }}
+                style={{
+                  padding: '0.625rem 1.25rem',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-secondary)',
+                  fontWeight: '500',
+                  borderRadius: '0.5rem',
+                  border: '1px solid var(--border-color)',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  transition: 'all 0.2s',
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'var(--border-color)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+              >
+                清除
+              </button>
+              {allTags.length > 0 && (
+                <select
+                  value={selectedTagFilter}
+                  onChange={(e) => { setSelectedTagFilter(e.target.value); loadCards(); }}
+                  style={{
+                    padding: '0.625rem 2rem 0.625rem 0.875rem',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' strokeWidth='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 0.75rem center',
+                  }}
+                >
+                  <option value="">全部標籤</option>
+                  {allTags.map((tag) => (
+                    <option key={tag.id} value={tag.id}>{tag.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           </form>
         </div>
 
@@ -670,18 +748,36 @@ export default function CardsPage() {
         {/* Cards List */}
         {loadingCards ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-            <div style={{ width: '3rem', height: '3rem', borderRadius: '50%', border: '3px solid #E5E7EB', borderTopColor: '#667eea', animation: 'spin 1s linear infinite' }} />
+            <div style={{ width: '3rem', height: '3rem', borderRadius: '50%', border: '3px solid var(--border-color)', borderTopColor: '#667EEA', animation: 'spin 1s linear infinite' }} />
           </div>
         ) : cards.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-            尚無名片資料
+          <div style={{
+            textAlign: 'center', padding: '4rem 2rem',
+            background: 'var(--bg-card)', borderRadius: '1rem',
+            border: '1px solid var(--border-color)',
+          }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5" style={{ margin: '0 auto 1rem' }}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 8h6M7 12h10M7 16h4"/></svg>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>尚無名片資料</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
             {cards.map((card) => (
-              <div key={card.id} className={`bg-white rounded-lg shadow p-4 relative ${selectedCards.has(card.id) ? 'ring-4 ring-blue-500' : ''}`}>
-                {/* Checkbox for batch selection */}
-                <div className="absolute top-2 left-2">
+              <div key={card.id} className={`relative overflow-hidden`} style={{
+                background: 'var(--bg-card)',
+                borderRadius: '1rem',
+                boxShadow: '0 1px 3px var(--shadow-color)',
+                border: '1px solid var(--border-color)',
+                transition: 'all 0.25s ease',
+                ...(selectedCards.has(card.id) ? {
+                  ring: '3px solid #667EEA',
+                  boxShadow: '0 4px 12px rgba(102,126,234,0.25)',
+                } : {}),
+              }}
+              onMouseOver={(e) => { if (!selectedCards.has(card.id)) { e.currentTarget.style.boxShadow = '0 4px 12px var(--shadow-color-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
+              onMouseOut={(e) => { if (!selectedCards.has(card.id)) { e.currentTarget.style.boxShadow = '0 1px 3px var(--shadow-color)'; e.currentTarget.style.transform = 'translateY(0)'; } }}
+              >
+                {/* Checkbox */}
+                <div className="absolute top-3 left-3 z-10">
                   <input
                     type="checkbox"
                     checked={selectedCards.has(card.id)}
@@ -695,46 +791,142 @@ export default function CardsPage() {
                       setSelectedCards(newSelected);
                       setShowBatchBar(newSelected.size > 0);
                     }}
-                    className="w-5 h-5 rounded cursor-pointer"
+                    className="w-4 h-4 rounded cursor-pointer"
+                    style={{ accentColor: '#667EEA' }}
                   />
                 </div>
-                <div className="flex justify-between items-start mb-2 pl-8">
-                  <h3 className="text-xl font-bold text-gray-900">{card.name || '(未填寫)'}</h3>
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      onClick={() => handleDownloadVCard(card)}
-                      className="text-green-600 hover:text-green-800 text-sm"
-                    >
-                      vCard
-                    </button>
-                    <button
-                      onClick={() => handleViewDetail(card)}
-                      className="text-purple-600 hover:text-purple-800 text-sm"
-                    >
-                      詳情
-                    </button>
-                    <button
-                      onClick={() => handleEdit(card)}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      編輯
-                    </button>
-                    <button
-                      onClick={() => handleDelete(card.id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
-                    >
-                      刪除
-                    </button>
+
+                {/* Card Header */}
+                <div style={{ padding: '1.25rem 1rem 0.75rem 1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem' }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem',
+                      background: 'linear-gradient(135deg, #667EEA, #764BA2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '1.125rem', fontWeight: '700', color: 'white',
+                      flexShrink: 0,
+                    }}>
+                      {(card.name || '?')[0].toUpperCase()}
+                    </div>
+
+                    {/* Name & Company */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {card.name || '(未填寫)'}
+                      </h3>
+                      {card.company && (
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {card.company}
+                          {card.title ? ` · ${card.title}` : ''}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <p className="text-gray-600">{card.company || ''} {card.title ? `| ${card.title}` : ''}</p>
-                <p className="text-gray-500 text-sm mt-2">
-                  {card.phone ? `☎ ${card.phone}` : ''}
-                  {card.mobile ? ` | 📱 ${card.mobile}` : ''}
-                </p>
-                <p className="text-gray-500 text-sm">
-                  {card.email ? `✉ ${card.email}` : ''}
-                </p>
+
+                {/* Contact Info */}
+                <div style={{ padding: '0 1.25rem 1rem 1.25rem' }}>
+                  {/* Tags */}
+                  {card.tags && card.tags.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '0.75rem' }}>
+                      {card.tags.slice(0, 3).map((tag, i) => (
+                        <span key={i} style={{
+                          fontSize: '0.6875rem', fontWeight: '600', padding: '0.2rem 0.5rem',
+                          borderRadius: '0.375rem', background: tag.color + '20', color: tag.color,
+                        }}>
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Phone/Mobile */}
+                  {(card.phone || card.mobile) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {[card.phone, card.mobile].filter(Boolean).join(' · ')}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Email */}
+                  {card.email && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {card.email}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{
+                  display: 'flex', borderTop: '1px solid var(--border-color)',
+                  background: 'var(--bg-secondary)',
+                }}>
+                  <button
+                    onClick={() => handleDownloadVCard(card)}
+                    style={{
+                      flex: 1, padding: '0.625rem', fontSize: '0.75rem', fontWeight: '600',
+                      color: '#059669', background: 'transparent', border: 'none',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = '#D1FAE5'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    vCard
+                  </button>
+                  <div style={{ width: '1px', background: 'var(--border-color)' }} />
+                  <button
+                    onClick={() => handleViewDetail(card)}
+                    style={{
+                      flex: 1, padding: '0.625rem', fontSize: '0.75rem', fontWeight: '600',
+                      color: '#7C3AED', background: 'transparent', border: 'none',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = '#EDE9FE'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    詳情
+                  </button>
+                  <div style={{ width: '1px', background: 'var(--border-color)' }} />
+                  <button
+                    onClick={() => handleEdit(card)}
+                    style={{
+                      flex: 1, padding: '0.625rem', fontSize: '0.75rem', fontWeight: '600',
+                      color: '#2563EB', background: 'transparent', border: 'none',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = '#DBEAFE'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    編輯
+                  </button>
+                  <div style={{ width: '1px', background: 'var(--border-color)' }} />
+                  <button
+                    onClick={() => handleDelete(card.id)}
+                    style={{
+                      flex: 1, padding: '0.625rem', fontSize: '0.75rem', fontWeight: '600',
+                      color: '#DC2626', background: 'transparent', border: 'none',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = '#FEE2E2'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    刪除
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -823,6 +1015,52 @@ export default function CardsPage() {
 
               {/* Scrollable Body */}
               <div style={{overflow: 'auto', flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem'}}>
+
+                {/* 名片圖片（未來支援 AI 裁切） */}
+                {(detailCard.front_image_url || detailCard.back_image_url) && (
+                  <div style={{display: 'flex', gap: '0.75rem', justifyContent: 'center'}}>
+                    {detailCard.front_image_url && (
+                      <div style={{flex: 1, maxWidth: '45%'}}>
+                        <p style={{fontSize: '0.7rem', fontWeight: '600', color: '#9CA3AF', textAlign: 'center', marginBottom: '0.5rem'}}>正面</p>
+                        <div style={{
+                          background: '#F9FAFB', borderRadius: '0.75rem', border: '1px solid #E5E7EB',
+                          overflow: 'hidden', cursor: 'zoom-in',
+                          transition: 'all 0.2s',
+                        }}
+                        onClick={() => { setImageModalSrc(detailCard.front_image_url!); setImageModalLabel('正面'); setShowImageModal(true); }}
+                        onMouseOver={e => (e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)')}
+                        onMouseOut={e => (e.currentTarget.style.boxShadow = 'none')}
+                        >
+                          <img
+                            src={detailCard.front_image_url}
+                            alt="名片正面"
+                            style={{width: '100%', maxHeight: '180px', objectFit: 'contain', display: 'block'}}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {detailCard.back_image_url && (
+                      <div style={{flex: 1, maxWidth: '45%'}}>
+                        <p style={{fontSize: '0.7rem', fontWeight: '600', color: '#9CA3AF', textAlign: 'center', marginBottom: '0.5rem'}}>背面</p>
+                        <div style={{
+                          background: '#F9FAFB', borderRadius: '0.75rem', border: '1px solid #E5E7EB',
+                          overflow: 'hidden', cursor: 'zoom-in',
+                          transition: 'all 0.2s',
+                        }}
+                        onClick={() => { setImageModalSrc(detailCard.back_image_url!); setImageModalLabel('背面'); setShowImageModal(true); }}
+                        onMouseOver={e => (e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)')}
+                        onMouseOut={e => (e.currentTarget.style.boxShadow = 'none')}
+                        >
+                          <img
+                            src={detailCard.back_image_url}
+                            alt="名片背面"
+                            style={{width: '100%', maxHeight: '180px', objectFit: 'contain', display: 'block'}}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}>
 
                 {/* 基本資訊卡片 */}
                 <div style={{
@@ -1028,6 +1266,39 @@ export default function CardsPage() {
                 >關閉</button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 圖片放大 Modal */}
+        {showImageModal && (
+          <div
+            onClick={() => setShowImageModal(false)}
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              zIndex: 999999, background: 'rgba(0,0,0,0.85)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexDirection: 'column', padding: '1rem', cursor: 'zoom-out'
+            }}
+          >
+            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: '600px', marginBottom: '1rem'}}>
+              <span style={{color: 'white', fontWeight: '600', fontSize: '0.9rem'}}>{imageModalLabel} — 點擊任意處關閉</span>
+              <button
+                onClick={() => setShowImageModal(false)}
+                style={{
+                  width: '2.5rem', height: '2.5rem', borderRadius: '9999px',
+                  background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer',
+                  color: 'white', fontSize: '1.25rem', transition: 'all 0.2s'
+                }}
+              >×</button>
+            </div>
+            <img
+              src={imageModalSrc}
+              alt={imageModalLabel}
+              style={{
+                maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain',
+                borderRadius: '0.75rem', boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+              }}
+            />
           </div>
         )}
       </main>
