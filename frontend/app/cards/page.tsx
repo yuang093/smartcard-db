@@ -1060,7 +1060,7 @@ export default function CardsPage() {
                       </div>
                     )}
                   </div>
-                )}>
+                )}
 
                 {/* 基本資訊卡片 */}
                 <div style={{
