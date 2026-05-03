@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, or_, delete
 from sqlalchemy.orm import selectinload
 import aiofiles
@@ -19,7 +20,7 @@ from app.models.tag import Tag
 from app.schemas.card import CardCreate, CardUpdate, CardResponse, CardSimple, CardUploadResponse, CardParsedResponse
 from app.schemas.tag import TagSimple
 from app.api.auth.router import get_current_user
-from app.services.minimax import parse_card_with_minimax
+from app.services.minimax import parse_card_with_minimax, detect_card_edges
 
 
 # ── Batch Request Schemas ─────────────────────────────────────────────────────
@@ -166,9 +167,24 @@ async def upload_and_parse(
             "_parse_error": str(e),
         }
 
+    # Detect card edges
+    front_crop = None
+    back_crop = None
+    try:
+        front_crop = detect_card_edges(str(front_path))
+    except Exception:
+        pass
+    if back and back.filename:
+        try:
+            back_crop = detect_card_edges(str(back_path))
+        except Exception:
+            pass
+
     return CardUploadResponse(
         front_image_url=front_url,
         back_image_url=back_url,
+        front_crop=front_crop.get("crop_coords") if front_crop else None,
+        back_crop=back_crop.get("crop_coords") if back_crop else None,
         parsed=CardParsedResponse(**parsed),
     )
 
@@ -229,12 +245,49 @@ async def create_card(
             updated_at=now,
             tags=[],
         )
+    except IntegrityError as e:
+        error_str = str(e).lower()
+        # 偵測資料庫唯一性約束錯誤 -> 名片重複
+        if 'unique' in error_str or 'duplicate' in error_str or 'constraint' in error_str or 'uq_' in error_str:
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="名片重複：已存在相同姓名與公司的名片",
+            )
+        # 其他 IntegrityError -> 500
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        import traceback
+        print(f"Card IntegrityError: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"儲存失敗:{str(e)}",
+        )
     except ValueError as e:
-        await db.rollback()
+        try:
+            await db.rollback()
+        except Exception:
+            pass
         import traceback
         error_detail = traceback.format_exc()
         print(f"Card creation error: {error_detail}")
         print(f"Card data: {card_dict}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"儲存失敗:{str(e)}",
+        )
+    except Exception as e:
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        import traceback
+        print(f"Card creation unexpected error: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"儲存失敗:{str(e)}",

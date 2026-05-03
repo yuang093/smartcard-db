@@ -3,6 +3,13 @@ from datetime import datetime
 from typing import Optional
 
 
+class CropCoords(BaseModel):
+    x1: float = 0.05
+    y1: float = 0.05
+    x2: float = 0.95
+    y2: float = 0.95
+
+
 class CardParsedResponse(BaseModel):
     name: Optional[str] = None
     company: Optional[str] = None
@@ -18,6 +25,8 @@ class CardParsedResponse(BaseModel):
 class CardUploadResponse(BaseModel):
     front_image_url: Optional[str] = None
     back_image_url: Optional[str] = None
+    front_crop: Optional[CropCoords] = None
+    back_crop: Optional[CropCoords] = None
     parsed: CardParsedResponse
 
 
@@ -30,11 +39,9 @@ class CardBase(BaseModel):
     email: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
-    notes: Optional[str] = None
 
 
 class CardCreate(CardBase):
-    # ✅ 新增：接收前端發送的圖片 URLs
     front_image_url: Optional[str] = None
     back_image_url: Optional[str] = None
     tag_ids: list[str] = []
