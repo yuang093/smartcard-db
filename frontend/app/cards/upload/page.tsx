@@ -100,11 +100,15 @@ interface CropOverlayProps {
 function CropOverlay({ crop, onCropChange, containerW, containerH }: CropOverlayProps) {
   const draggingRef = useRef<{ type: string; startX: number; startY: number; startCrop: CropArea } | null>(null);
 
+  // Guard against NaN from zero dimensions
+  const cw = (containerW > 0 && isFinite(containerW)) ? containerW : 1;
+  const ch = (containerH > 0 && isFinite(containerH)) ? containerH : 1;
+
   function toPercentX(clientX: number) {
-    return clamp((clientX / containerW) * 100, 0, 100);
+    return clamp((clientX / cw) * 100, 0, 100);
   }
   function toPercentY(clientY: number) {
-    return clamp((clientY / containerH) * 100, 0, 100);
+    return clamp((clientY / ch) * 100, 0, 100);
   }
 
   const handlePointerDown = useCallback((e: React.PointerEvent, type: string) => {
@@ -175,8 +179,8 @@ function CropOverlay({ crop, onCropChange, containerW, containerH }: CropOverlay
   }, [crop, onCropChange, containerW, containerH]);
 
   // px positions
-  const px = (pct: number) => pct / 100 * containerW;
-  const py = (pct: number) => pct / 100 * containerH;
+  const px = (pct: number) => (isFinite(pct) ? pct / 100 * cw : 0);
+  const py = (pct: number) => (isFinite(pct) ? pct / 100 * ch : 0);
   const pleft = px(crop.x);
   const ptop = py(crop.y);
   const pwidth = px(crop.width);
