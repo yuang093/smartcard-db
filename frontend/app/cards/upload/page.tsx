@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import type { CardUploadResponse } from "@/types";
 import ThemeToggle from "@/components/ThemeToggle";
 
 interface CropArea {
-  x: number; // percentage 0-100
-  y: number; // percentage 0-100
-  width: number; // percentage 0-100
-  height: number; // percentage 0-100
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 interface ImageInfo {
@@ -44,12 +44,12 @@ async function cropAndResizeImage(blob: File | Blob, crop: CropArea, naturalW: n
       const w = crop.width / 100 * img.naturalWidth;
       const h = crop.height / 100 * img.naturalHeight;
       const scale = targetWidth / w;
-      const targetHeight = Math.round(h * scale);
+      const targetH = Math.round(h * scale);
       const canvas = document.createElement('canvas');
       canvas.width = targetWidth;
-      canvas.height = targetHeight;
+      canvas.height = targetH;
       const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, x, y, w, h, 0, 0, targetWidth, targetHeight);
+      ctx.drawImage(img, x, y, w, h, 0, 0, targetWidth, targetH);
       canvas.toBlob((b) => { if (b) resolve(b); else reject(new Error('toBlob failed')); }, 'image/jpeg', 0.85);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load failed')); };
@@ -88,6 +88,10 @@ async function compressImage(file: File, maxSizeBytes: number = 500 * 1024): Pro
   });
 }
 
+function clamp(v: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, v));
+}
+
 interface CropBoxProps {
   crop: CropArea;
   onCropChange: (c: CropArea) => void;
@@ -97,7 +101,72 @@ interface CropBoxProps {
 
 function CropBox({ crop, onCropChange, containerW, containerH }: CropBoxProps) {
   const [dragging, setDragging] = useState<'move' | 'tl' | 'tr' | 'bl' | 'br' | null>(null);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0, crop: { x: 0, y: 0, width: 0, height: 0 } });
+
+  function getClient(e: MouseEvent | Touch) {
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function handleDragStart(e: MouseEvent | TouchEvent, type: 'move' | 'tl' | 'tr' | 'bl' | 'br') {
+    e.preventDefault();
+    e.stopPropagation();
+    const start = getClient(e.touches ? e.touches[0] : (e as unknown as MouseEvent));
+    setDragging(type);
+
+    const handleMove = (ev: MouseEvent | TouchEvent) => {
+      const { x: curX, y: curY } = getClient(ev.touches ? ev.touches[0] : (ev as unknown as MouseEvent));
+      const dx = (curX - start.x) / containerW * 100;
+      const dy = (curY - start.y) / containerH * 100;
+      let nc: CropArea = { ...crop };
+
+      if (type === 'move') {
+        nc.x = clamp(crop.x + dx, 0, 100 - crop.width);
+        nc.y = clamp(crop.y + dy, 0, 100 - crop.height);
+      } else if (type === 'tl') {
+        const newW = crop.width - dx;
+        const newH = crop.height - dy;
+        if (newW > 5 && newH > 5) {
+          nc = { x: clamp(crop.x + dx, 0, 100 - newW), y: clamp(crop.y + dy, 0, 100 - newH), width: newW, height: newH };
+        }
+      } else if (type === 'tr') {
+        const newW = crop.width + dx;
+        const newH = crop.height - dy;
+        if (newW > 5 && newH > 5) {
+          nc = { ...crop, y: clamp(crop.y + dy, 0, 100 - newH), width: newW, height: newH };
+        }
+      } else if (type === 'bl') {
+        const newW = crop.width - dx;
+        const newH = crop.height + dy;
+        if (newW > 5 && newH > 5) {
+          nc = { x: clamp(crop.x + dx, 0, 100 - newW), width: newW, height: newH };
+        }
+      } else if (type === 'br') {
+        const newW = crop.width + dx;
+        const newH = crop.height + dy;
+        if (newW > 5 && newH > 5) {
+          nc = { ...crop, width: newW, height: newH };
+        }
+      }
+
+      nc.x = clamp(nc.x, 0, 100 - nc.width);
+      nc.y = clamp(nc.y, 0, 100 - nc.height);
+      nc.width = clamp(nc.width, 5, 100);
+      nc.height = clamp(nc.height, 5, 100);
+      onCropChange(nc);
+    };
+
+    const handleEnd = () => {
+      setDragging(null);
+      document.removeEventListener('mousemove', handleMove as EventListener);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove as EventListener);
+      document.removeEventListener('touchend', handleEnd);
+    };
+
+    document.addEventListener('mousemove', handleMove as EventListener);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove as EventListener, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+  }
 
   const boxStyle: React.CSSProperties = {
     position: 'absolute',
@@ -109,94 +178,23 @@ function CropBox({ crop, onCropChange, containerW, containerH }: CropBoxProps) {
     boxSizing: 'border-box',
     cursor: dragging === 'move' ? 'move' : 'nw-resize',
     background: 'rgba(102,126,234,0.08)',
+    touchAction: 'none',
+    userSelect: 'none',
   };
-
-  function clamp(v: number, min: number, max: number) {
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function handleMouseDown(e: React.MouseEvent, type: 'move' | 'tl' | 'tr' | 'bl' | 'br') {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragging(type);
-    setDragStart({ x: e.clientX, y: e.clientY, crop: { ...crop } });
-
-    const handleMouseMove = (ev: MouseEvent) => {
-      const dx = (ev.clientX - dragStart.x) / containerW * 100;
-      const dy = (ev.clientY - dragStart.y) / containerH * 100;
-
-      if (type === 'move') {
-        let nx = dragStart.crop.x + dx;
-        let ny = dragStart.crop.y + dy;
-        nx = clamp(nx, 0, 100 - crop.width);
-        ny = clamp(ny, 0, 100 - crop.height);
-        onCropChange({ ...crop, x: nx, y: ny });
-      } else {
-        let nc = { ...crop };
-        if (type === 'tl') {
-          const newW = dragStart.crop.width - dx;
-          const newH = dragStart.crop.height - dy;
-          if (newW > 5 && newH > 5) {
-            nc = { x: dragStart.crop.x + dx, y: dragStart.crop.y + dy, width: newW, height: newH };
-          }
-        } else if (type === 'tr') {
-          const newW = dragStart.crop.width + dx;
-          const newH = dragStart.crop.height - dy;
-          if (newW > 5 && newH > 5) {
-            nc = { ...crop, y: dragStart.crop.y + dy, width: newW, height: newH };
-          }
-        } else if (type === 'bl') {
-          const newW = dragStart.crop.width - dx;
-          const newH = dragStart.crop.height + dy;
-          if (newW > 5 && newH > 5) {
-            nc = { x: dragStart.crop.x + dx, width: newW, height: newH };
-          }
-        } else if (type === 'br') {
-          const newW = dragStart.crop.width + dx;
-          const newH = dragStart.crop.height + dy;
-          if (newW > 5 && newH > 5) {
-            nc = { ...crop, width: newW, height: newH };
-          }
-        }
-        nc.x = clamp(nc.x, 0, 100 - nc.width);
-        nc.y = clamp(nc.y, 0, 100 - nc.height);
-        nc.width = clamp(nc.width, 5, 100);
-        nc.height = clamp(nc.height, 5, 100);
-        onCropChange(nc);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setDragging(null);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }
-
-  // Dark overlay with cutout
-  const coverTop = crop.y;
-  const coverBottom = 100 - (crop.y + crop.height);
-  const coverLeft = crop.x;
-  const coverRight = 100 - (crop.x + crop.width);
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-      {/* Top */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${coverTop}%`, background: 'rgba(0,0,0,0.5)' }} />
-      {/* Bottom */}
+      {/* Dark overlay with cutout */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${crop.y}%`, background: 'rgba(0,0,0,0.5)' }} />
       <div style={{ position: 'absolute', top: `${crop.y + crop.height}%`, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)' }} />
-      {/* Left */}
-      <div style={{ position: 'absolute', top: `${coverTop}%`, left: 0, width: `${coverLeft}%`, height: `${crop.height}%`, background: 'rgba(0,0,0,0.5)' }} />
-      {/* Right */}
-      <div style={{ position: 'absolute', top: `${coverTop}%`, left: `${crop.x + crop.width}%`, right: 0, height: `${crop.height}%`, background: 'rgba(0,0,0,0.5)' }} />
+      <div style={{ position: 'absolute', top: `${crop.y}%`, left: 0, width: `${crop.x}%`, height: `${crop.height}%`, background: 'rgba(0,0,0,0.5)' }} />
+      <div style={{ position: 'absolute', top: `${crop.y}%`, left: `${crop.x + crop.width}%`, right: 0, height: `${crop.height}%`, background: 'rgba(0,0,0,0.5)' }} />
 
-      {/* Crop box */}
+      {/* Crop box with move handle */}
       <div
         style={boxStyle}
-        onMouseDown={(e) => handleMouseDown(e, 'move')}
+        onMouseDown={(e) => handleDragStart(e, 'move')}
+        onTouchStart={(e) => handleDragStart(e, 'move')}
         onDragStart={(e) => e.preventDefault()}
       >
         {/* Corner handles */}
@@ -214,17 +212,16 @@ function CropBox({ crop, onCropChange, containerW, containerH }: CropBoxProps) {
               right: right !== undefined ? right : undefined,
               top: top !== undefined ? top : undefined,
               bottom: bottom !== undefined ? bottom : undefined,
-              width: '10px', height: '10px',
+              width: '14px', height: '14px',
               background: '#667EEA',
               border: '2px solid white',
-              borderRadius: '2px',
+              borderRadius: '3px',
               pointerEvents: 'all',
               cursor,
+              touchAction: 'none',
             }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              handleMouseDown(e, pos as 'tl' | 'tr' | 'bl' | 'br');
-            }}
+            onMouseDown={(e) => { e.stopPropagation(); handleDragStart(e, pos as 'tl' | 'tr' | 'bl' | 'br'); }}
+            onTouchStart={(e) => { e.stopPropagation(); handleDragStart(e, pos as 'tl' | 'tr' | 'bl' | 'br'); }}
             onDragStart={(e) => e.preventDefault()}
           />
         ))}
@@ -248,13 +245,15 @@ export default function UploadPage() {
 
   const [frontImg, setFrontImg] = useState<ImageInfo>({ file: null, preview: null, naturalW: 0, naturalH: 0 });
   const [backImg, setBackImg] = useState<ImageInfo>({ file: null, preview: null, naturalW: 0, naturalH: 0 });
-  const [frontCrop, setFrontCrop] = useState<CropArea>(getAutoCrop());
-  const [backCrop, setBackCrop] = useState<CropArea>(getAutoCrop());
+  const [frontCrop, setFrontCrop] = useState<CropArea>(getAutoCrop);
+  const [backCrop, setBackCrop] = useState<CropArea>(getAutoCrop);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
+  const [mounted, setMounted] = useState(false);
   const [frontSize, setFrontSize] = useState({ w: 0, h: 0 });
   const [backSize, setBackSize] = useState({ w: 0, h: 0 });
+
+  useEffect(() => { setMounted(true); }, []);
 
   async function handleFrontChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -350,6 +349,8 @@ export default function UploadPage() {
 
   const btnBase: React.CSSProperties = { flex: 1, padding: '0.5rem', fontSize: '0.8rem', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600', border: 'none' };
 
+  const hasFront = frontImg.preview !== null;
+
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c)', backgroundSize: '400% 400%', animation: 'gradientShift 10s ease infinite' }}>
       <Toaster position="top center" toastOptions={{ duration: 3000 }} />
@@ -371,7 +372,11 @@ export default function UploadPage() {
       <main style={{ maxWidth: '36rem', margin: '0 auto', padding: '1.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: 'white', marginBottom: '0.5rem' }}>上傳名片</h2>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9375rem' }}>拖曳角落調整裁切範圍</p>
+          {mounted && (
+            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9375rem' }} suppressHydrationWarning>
+              {hasFront ? '拖曳角落調整裁切範圍' : '拍攝或選擇名片圖片'}
+            </p>
+          )}
         </div>
 
         <div style={{ background: 'white', borderRadius: '1.5rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', padding: '2rem', position: 'relative', zIndex: 1, animation: 'slideUp 0.4s ease-out' }}>
@@ -393,9 +398,8 @@ export default function UploadPage() {
                     alt="正面預覽"
                     style={{ display: 'block', width: '100%', height: 'auto', userSelect: 'none', pointerEvents: 'none' }}
                     onLoad={(e) => {
-                      const w = (e.target as HTMLImageElement).clientWidth;
-                      const h = (e.target as HTMLImageElement).clientHeight;
-                      setFrontSize({ w, h });
+                      const img = e.target as HTMLImageElement;
+                      setFrontSize({ w: img.clientWidth, h: img.clientHeight });
                     }}
                   />
                   {frontSize.w > 0 && (
@@ -434,9 +438,8 @@ export default function UploadPage() {
                     alt="背面預覽"
                     style={{ display: 'block', width: '100%', height: 'auto', userSelect: 'none', pointerEvents: 'none' }}
                     onLoad={(e) => {
-                      const w = (e.target as HTMLImageElement).clientWidth;
-                      const h = (e.target as HTMLImageElement).clientHeight;
-                      setBackSize({ w, h });
+                      const img = e.target as HTMLImageElement;
+                      setBackSize({ w: img.clientWidth, h: img.clientHeight });
                     }}
                   />
                   {backSize.w > 0 && (
@@ -465,7 +468,9 @@ export default function UploadPage() {
         </div>
 
         <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1rem', backdropFilter: 'blur(8px)' }}>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', textAlign: 'center', lineHeight: 1.6 }}>💡 拖曳藍色方框拖動位置，拖曳角落調整大小</p>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', textAlign: 'center', lineHeight: 1.6 }} suppressHydrationWarning>
+            💡 {hasFront ? '拖曳藍色方框移動位置，拖曳角落調整大小' : '上傳照片後拖曳調整裁切範圍'}
+          </p>
         </div>
       </main>
 
