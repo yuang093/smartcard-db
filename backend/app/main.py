@@ -44,10 +44,10 @@ def create_app() -> FastAPI:
     app.include_router(upload_router, prefix="/api/v1")
     app.include_router(admin_router)
 
-    # Mount static files for card images (uploads directory)
+    # Mount static files for card images at /uploads (not /api/v1/static)
     uploads_dir = Path("/app/uploads")
     if uploads_dir.exists():
-        app.mount("/api/v1/static", StaticFiles(directory=str(uploads_dir)), name="static")
+        app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="static")
 
     return app
 

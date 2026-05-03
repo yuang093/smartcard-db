@@ -11,7 +11,7 @@ const nextConfig = {
       },
       {
         source: '/uploads/:path*',
-        destination: 'http://backend:8000/api/v1/static/:path*',
+        destination: 'http://backend:8000/uploads/:path*',
       },
     ];
   },
