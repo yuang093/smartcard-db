@@ -582,3 +582,36 @@ async def batch_remove_tags(
     await db.commit()
     return {"message": "Removed tags from cards", "count": len(card_ids)}
 
+
+
+# ── Edge Detection Endpoint ───────────────────────────────────────────────────
+@router.post("/detect_edges", response_model=dict)
+async def detect_card_edges_endpoint(
+    file: UploadFile = File(..., description="名片圖檔"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Detect card edge coordinates (crop_coords) from an image using MiniMax Vision.
+    Returns {crop_coords: {x1, y1, x2, y2}} with normalized 0-1 values.
+    """
+    import aiofiles
+    import uuid
+    from pathlib import Path
+
+    TEMP_DIR = UPLOAD_DIR
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(file.filename or "front.jpg").suffix.lstrip(".") or "jpg"
+    temp_name = f"temp_{uuid.uuid4()}.{ext}"
+    temp_path = TEMP_DIR / temp_name
+
+    async with aiofiles.open(temp_path, "wb") as f:
+        content = await file.read()
+        await f.write(content)
+
+    try:
+        result = await detect_card_edges(str(temp_path))
+        return result
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()

@@ -227,12 +227,22 @@ function CropOverlay({ crop, onCropChange, containerW, containerH }: CropOverlay
   );
 }
 
+interface CropCoords { x1: number; y1: number; x2: number; y2: number; }
+
 interface ParsedCard {
   name?: string | null; company?: string | null; title?: string | null;
   phone?: string | null; mobile?: string | null; email?: string | null;
   address?: string | null; suggested_tags?: string[];
   front_image_url?: string | null; back_image_url?: string | null;
   _parse_error?: string; _front_preview?: string | null; _back_preview?: string | null;
+}
+
+interface UploadResponseData {
+  front_image_url?: string | null;
+  back_image_url?: string | null;
+  front_crop?: CropCoords | null;
+  back_crop?: CropCoords | null;
+  parsed?: ParsedCard;
 }
 
 export default function UploadPage() {
@@ -306,8 +316,19 @@ export default function UploadPage() {
         try { const d = await res.json(); if (d.detail) errMsg = String(d.detail); } catch {}
         throw new Error(errMsg);
       }
-      const data: CardUploadResponse = await res.json();
+      const data: UploadResponseData = await res.json();
       const parsed: ParsedCard = data.parsed || {};
+
+      // Use AI-detected crop coords or fall back to auto-crop
+      if (data.front_crop) {
+        const c = data.front_crop;
+        setFrontCrop({
+          x: c.x1 * 100,
+          y: c.y1 * 100,
+          width: (c.x2 - c.x1) * 100,
+          height: (c.y2 - c.y1) * 100,
+        });
+      }
       if (!parsed.name && !parsed.company && !parsed.email && !parsed._parse_error) throw new Error("AI 辨識失敗");
       if (parsed._parse_error) throw new Error("AI 辨識失敗：" + parsed._parse_error);
       const croppedFrontUrl = URL.createObjectURL(frontBlob);
