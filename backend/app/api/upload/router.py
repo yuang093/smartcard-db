@@ -1,7 +1,9 @@
 import uuid
 import aiofiles
 import os
+import httpx
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -19,7 +21,6 @@ async def upload_card_image(
     current_user: User = Depends(get_current_user),
 ):
     """上傳名片圖片並返回檔案 ID"""
-    # Validate file type
     allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
     if file.content_type not in allowed_types:
         raise HTTPException(
@@ -27,16 +28,13 @@ async def upload_card_image(
             detail=f"不支援的檔案格式: {file.content_type}，僅支援 JPEG/PNG/WebP"
         )
     
-    # Generate unique filename
     file_ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
     file_id = str(uuid.uuid4())
     filename = f"{file_id}.{file_ext}"
     filepath = os.path.join(UPLOAD_DIR, filename)
     
-    # Ensure upload directory exists
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     
-    # Save file
     try:
         async with aiofiles.open(filepath, 'wb') as f:
             content = await file.read()
@@ -44,7 +42,6 @@ async def upload_card_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"檔案儲存失敗: {str(e)}")
     
-    # Return file info
     return {
         "file_id": file_id,
         "filename": filename,
@@ -54,20 +51,12 @@ async def upload_card_image(
 
 
 @router.get("/{filename}")
-async def get_uploaded_image(
-    filename: str,
-    current_user: User = Depends(get_current_user),
-):
-    """取得已上傳的圖片"""
+async def get_uploaded_image(filename: str):
+    """取得已上傳的圖片（需要登入）"""
     filepath = os.path.join(UPLOAD_DIR, filename)
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="檔案不存在")
     
-    # Return file path for serving (in production, use static files or CDN)
-    with open(filepath, 'rb') as f:
-        content = f.read()
-    
-    # Determine content type
     if filename.endswith('.png'):
         content_type = "image/png"
     elif filename.endswith('.webp'):
@@ -75,5 +64,4 @@ async def get_uploaded_image(
     else:
         content_type = "image/jpeg"
     
-    from fastapi.responses import Response
-    return Response(content=content, media_type=content_type)
+    return FileResponse(filepath, media_type=content_type)
