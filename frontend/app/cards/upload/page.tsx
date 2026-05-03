@@ -1,51 +1,27 @@
 'use client';
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import type { CardUploadResponse } from "@/types";
 import ThemeToggle from "@/components/ThemeToggle";
 
 interface CropArea {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x: number; // percentage 0-100
+  y: number; // percentage 0-100
+  width: number; // percentage 0-100
+  height: number; // percentage 0-100
 }
 
-interface ImagePreview {
+interface ImageInfo {
   file: File | null;
   preview: string | null;
   naturalW: number;
   naturalH: number;
 }
 
-async function cropAndResizeImage(blob: File | Blob, crop: CropArea, targetWidth: number = 800): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(blob);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = targetWidth / crop.width;
-      const targetHeight = Math.round(crop.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, crop.x, crop.y, crop.width, crop.height, 0, 0, targetWidth, targetHeight);
-      canvas.toBlob((b) => {
-        if (b) resolve(b);
-        else reject(new Error('Canvas toBlob failed'));
-      }, 'image/jpeg', 0.85);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
-    img.src = url;
-  });
-}
-
-function getAutoCrop(w: number, h: number): CropArea {
-  const pad = Math.round(Math.min(w, h) * 0.05);
-  return { x: pad, y: pad, width: w - pad * 2, height: h - pad * 2 };
+function getAutoCrop(): CropArea {
+  return { x: 5, y: 5, width: 90, height: 90 };
 }
 
 async function getImageDimensions(src: string): Promise<{ w: number; h: number }> {
@@ -57,6 +33,30 @@ async function getImageDimensions(src: string): Promise<{ w: number; h: number }
   });
 }
 
+async function cropAndResizeImage(blob: File | Blob, crop: CropArea, naturalW: number, naturalH: number, targetWidth: number = 800): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const x = crop.x / 100 * img.naturalWidth;
+      const y = crop.y / 100 * img.naturalHeight;
+      const w = crop.width / 100 * img.naturalWidth;
+      const h = crop.height / 100 * img.naturalHeight;
+      const scale = targetWidth / w;
+      const targetHeight = Math.round(h * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, x, y, w, h, 0, 0, targetWidth, targetHeight);
+      canvas.toBlob((b) => { if (b) resolve(b); else reject(new Error('toBlob failed')); }, 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load failed')); };
+    img.src = url;
+  });
+}
+
 async function compressImage(file: File, maxSizeBytes: number = 500 * 1024): Promise<File> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -64,157 +64,171 @@ async function compressImage(file: File, maxSizeBytes: number = 500 * 1024): Pro
     img.onload = () => {
       URL.revokeObjectURL(url);
       const MAX_DIM = 1200;
-      let { width, height } = img;
-      if (width > MAX_DIM || height > MAX_DIM) {
-        if (width > height) { height = Math.round(height * MAX_DIM / width); width = MAX_DIM; }
-        else { width = Math.round(width * MAX_DIM / height); height = MAX_DIM; }
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > MAX_DIM || h > MAX_DIM) {
+        if (w > h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
+        else { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
       }
       const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = height;
-      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
-      const tryCompress = (q: number): Promise<Blob | null> =>
-        new Promise((res) => canvas.toBlob((b) => res(b), 'image/jpeg', q));
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      const tryC = (q: number): Promise<Blob | null> => new Promise((res) => canvas.toBlob((b) => res(b), 'image/jpeg', q));
       (async () => {
         for (let q = 0.85; q >= 0.4; q -= 0.1) {
-          const b = await tryCompress(q);
+          const b = await tryC(q);
           if (b && b.size <= maxSizeBytes) { resolve(new File([b], file.name, { type: 'image/jpeg' })); return; }
         }
-        const b = await tryCompress(0.4);
+        const b = await tryC(0.4);
         if (b) resolve(new File([b], file.name, { type: 'image/jpeg' }));
         else resolve(file);
       })();
     };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load failed')); };
     img.src = url;
   });
 }
 
-interface CropOverlayProps {
-  src: string;
+interface CropBoxProps {
   crop: CropArea;
   onCropChange: (c: CropArea) => void;
-  naturalW: number;
-  naturalH: number;
+  containerW: number;
+  containerH: number;
 }
 
-function CropOverlay({ src, crop, onCropChange, naturalW, naturalH }: CropOverlayProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
+function CropBox({ crop, onCropChange, containerW, containerH }: CropBoxProps) {
+  const [dragging, setDragging] = useState<'move' | 'tl' | 'tr' | 'bl' | 'br' | null>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, crop: { x: 0, y: 0, width: 0, height: 0 } });
 
-  // Convert screen coords to image coords
-  function screenToImage(screenX: number, screenY: number): { x: number; y: number } {
-    const container = containerRef.current;
-    if (!container) return { x: 0, y: 0 };
-    const rect = container.getBoundingClientRect();
-    const scaleX = naturalW / rect.width;
-    const scaleY = naturalH / rect.height;
-    return {
-      x: (screenX - rect.left) * scaleX,
-      y: (screenY - rect.top) * scaleY,
+  const boxStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: `${crop.x / 100 * containerW}px`,
+    top: `${crop.y / 100 * containerH}px`,
+    width: `${crop.width / 100 * containerW}px`,
+    height: `${crop.height / 100 * containerH}px`,
+    border: '2px solid #667EEA',
+    boxSizing: 'border-box',
+    cursor: dragging === 'move' ? 'move' : 'nw-resize',
+    background: 'rgba(102,126,234,0.08)',
+  };
+
+  function clamp(v: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function handleMouseDown(e: React.MouseEvent, type: 'move' | 'tl' | 'tr' | 'bl' | 'br') {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(type);
+    setDragStart({ x: e.clientX, y: e.clientY, crop: { ...crop } });
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      const dx = (ev.clientX - dragStart.x) / containerW * 100;
+      const dy = (ev.clientY - dragStart.y) / containerH * 100;
+
+      if (type === 'move') {
+        let nx = dragStart.crop.x + dx;
+        let ny = dragStart.crop.y + dy;
+        nx = clamp(nx, 0, 100 - crop.width);
+        ny = clamp(ny, 0, 100 - crop.height);
+        onCropChange({ ...crop, x: nx, y: ny });
+      } else {
+        let nc = { ...crop };
+        if (type === 'tl') {
+          const newW = dragStart.crop.width - dx;
+          const newH = dragStart.crop.height - dy;
+          if (newW > 5 && newH > 5) {
+            nc = { x: dragStart.crop.x + dx, y: dragStart.crop.y + dy, width: newW, height: newH };
+          }
+        } else if (type === 'tr') {
+          const newW = dragStart.crop.width + dx;
+          const newH = dragStart.crop.height - dy;
+          if (newW > 5 && newH > 5) {
+            nc = { ...crop, y: dragStart.crop.y + dy, width: newW, height: newH };
+          }
+        } else if (type === 'bl') {
+          const newW = dragStart.crop.width - dx;
+          const newH = dragStart.crop.height + dy;
+          if (newW > 5 && newH > 5) {
+            nc = { x: dragStart.crop.x + dx, width: newW, height: newH };
+          }
+        } else if (type === 'br') {
+          const newW = dragStart.crop.width + dx;
+          const newH = dragStart.crop.height + dy;
+          if (newW > 5 && newH > 5) {
+            nc = { ...crop, width: newW, height: newH };
+          }
+        }
+        nc.x = clamp(nc.x, 0, 100 - nc.width);
+        nc.y = clamp(nc.y, 0, 100 - nc.height);
+        nc.width = clamp(nc.width, 5, 100);
+        nc.height = clamp(nc.height, 5, 100);
+        onCropChange(nc);
+      }
     };
+
+    const handleMouseUp = () => {
+      setDragging(null);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   }
 
-  // Convert image coords to display coords
-  function imageToScreen(imgX: number, imgY: number): { x: number; y: number } {
-    const container = containerRef.current;
-    if (!container) return { x: 0, y: 0 };
-    const rect = container.getBoundingClientRect();
-    const scaleX = rect.width / naturalW;
-    const scaleY = rect.height / naturalH;
-    return { x: imgX * scaleX, y: imgY * scaleY };
-  }
-
-  const sTopLeft = imageToScreen(crop.x, crop.y);
-  const sBottomRight = imageToScreen(crop.x + crop.width, crop.y + crop.height);
-  const sWidth = sBottomRight.x - sTopLeft.x;
-  const sHeight = sBottomRight.y - sTopLeft.y;
+  // Dark overlay with cutout
+  const coverTop = crop.y;
+  const coverBottom = 100 - (crop.y + crop.height);
+  const coverLeft = crop.x;
+  const coverRight = 100 - (crop.x + crop.width);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ position: 'relative', display: 'inline-block', width: '100%', borderRadius: '0.75rem', overflow: 'hidden', cursor: 'crosshair' }}
-    >
-      <img src={src} alt="裁切預覽" style={{ display: 'block', width: '100%', height: 'auto', userSelect: 'none', pointerEvents: 'none' }} draggable={false} />
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      {/* Top */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${coverTop}%`, background: 'rgba(0,0,0,0.5)' }} />
+      {/* Bottom */}
+      <div style={{ position: 'absolute', top: `${crop.y + crop.height}%`, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)' }} />
+      {/* Left */}
+      <div style={{ position: 'absolute', top: `${coverTop}%`, left: 0, width: `${coverLeft}%`, height: `${crop.height}%`, background: 'rgba(0,0,0,0.5)' }} />
+      {/* Right */}
+      <div style={{ position: 'absolute', top: `${coverTop}%`, left: `${crop.x + crop.width}%`, right: 0, height: `${crop.height}%`, background: 'rgba(0,0,0,0.5)' }} />
 
-      {/* Dark overlay with cutout */}
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        {/* Top dark */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${sTopLeft.y}px`, background: 'rgba(0,0,0,0.5)' }} />
-        {/* Bottom dark */}
-        <div style={{ position: 'absolute', top: `${sBottomRight.y}px`, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)' }} />
-        {/* Left dark */}
-        <div style={{ position: 'absolute', top: `${sTopLeft.y}px`, left: 0, width: `${sTopLeft.x}px`, height: `${sHeight}px`, background: 'rgba(0,0,0,0.5)' }} />
-        {/* Right dark */}
-        <div style={{ position: 'absolute', top: `${sTopLeft.y}px`, left: `${sBottomRight.x}px`, right: 0, height: `${sHeight}px`, background: 'rgba(0,0,0,0.5)' }} />
-
-        {/* Border */}
-        <div style={{
-          position: 'absolute',
-          top: `${sTopLeft.y}px`,
-          left: `${sTopLeft.x}px`,
-          width: `${sWidth}px`,
-          height: `${sHeight}px`,
-          border: '2px solid #667EEA',
-          boxSizing: 'border-box',
-          pointerEvents: 'none',
-        }} />
-
+      {/* Crop box */}
+      <div
+        style={boxStyle}
+        onMouseDown={(e) => handleMouseDown(e, 'move')}
+        onDragStart={(e) => e.preventDefault()}
+      >
         {/* Corner handles */}
         {[
-          { x: sTopLeft.x - 4, y: sTopLeft.y - 4, cursor: 'nw-resize' },
-          { x: sBottomRight.x - 4, y: sTopLeft.y - 4, cursor: 'ne-resize' },
-          { x: sTopLeft.x - 4, y: sBottomRight.y - 4, cursor: 'sw-resize' },
-          { x: sBottomRight.x - 4, y: sBottomRight.y - 4, cursor: 'se-resize' },
-        ].map((corner, i) => (
-          <div key={i} style={{
-            position: 'absolute',
-            top: `${corner.y}px`,
-            left: `${corner.x}px`,
-            width: '10px',
-            height: '10px',
-            background: '#667EEA',
-            border: '1px solid white',
-            borderRadius: '2px',
-            pointerEvents: 'none',
-          }} />
+          { pos: 'tl', left: -4, top: -4, cursor: 'nw-resize' },
+          { pos: 'tr', right: -4, top: -4, cursor: 'ne-resize' },
+          { pos: 'bl', left: -4, bottom: -4, cursor: 'sw-resize' },
+          { pos: 'br', right: -4, bottom: -4, cursor: 'se-resize' },
+        ].map(({ pos, left, right, top, bottom, cursor }) => (
+          <div
+            key={pos}
+            style={{
+              position: 'absolute',
+              left: left !== undefined ? left : undefined,
+              right: right !== undefined ? right : undefined,
+              top: top !== undefined ? top : undefined,
+              bottom: bottom !== undefined ? bottom : undefined,
+              width: '10px', height: '10px',
+              background: '#667EEA',
+              border: '2px solid white',
+              borderRadius: '2px',
+              pointerEvents: 'all',
+              cursor,
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              handleMouseDown(e, pos as 'tl' | 'tr' | 'bl' | 'br');
+            }}
+            onDragStart={(e) => e.preventDefault()}
+          />
         ))}
       </div>
-
-      {/* Invisible drag zones */}
-      {/* Entire area for dragging */}
-      <div
-        style={{ position: 'absolute', inset: 0 }}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          const { x, y } = screenToImage(e.clientX, e.clientY);
-          setIsDragging(true);
-          const newCrop = {
-            x: x - crop.width / 2,
-            y: y - crop.height / 2,
-            width: crop.width,
-            height: crop.height,
-          };
-          onCropChange({
-            x: Math.max(0, Math.min(naturalW - crop.width, newCrop.x)),
-            y: Math.max(0, Math.min(naturalH - crop.height, newCrop.y)),
-            width: crop.width,
-            height: crop.height,
-          });
-          const handleMove = (ev: MouseEvent) => {
-            const { x: nx, y: ny } = screenToImage(ev.clientX, ev.clientY);
-            onCropChange({
-              x: Math.max(0, Math.min(naturalW - crop.width, nx - crop.width / 2)),
-              y: Math.max(0, Math.min(naturalH - crop.height, ny - crop.height / 2)),
-              width: crop.width,
-              height: crop.height,
-            });
-          };
-          const handleUp = () => { setIsDragging(false); document.removeEventListener('mousemove', handleMove); document.removeEventListener('mouseup', handleUp); };
-          document.addEventListener('mousemove', handleMove);
-          document.addEventListener('mouseup', handleUp);
-        }}
-        onDragStart={(e) => e.preventDefault()}
-      />
     </div>
   );
 }
@@ -232,12 +246,15 @@ export default function UploadPage() {
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
 
-  const [frontImg, setFrontImg] = useState<ImagePreview>({ file: null, preview: null, naturalW: 0, naturalH: 0 });
-  const [backImg, setBackImg] = useState<ImagePreview>({ file: null, preview: null, naturalW: 0, naturalH: 0 });
-  const [frontCrop, setFrontCrop] = useState<CropArea>({ x: 0, y: 0, width: 0, height: 0 });
-  const [backCrop, setBackCrop] = useState<CropArea>({ x: 0, y: 0, width: 0, height: 0 });
+  const [frontImg, setFrontImg] = useState<ImageInfo>({ file: null, preview: null, naturalW: 0, naturalH: 0 });
+  const [backImg, setBackImg] = useState<ImageInfo>({ file: null, preview: null, naturalW: 0, naturalH: 0 });
+  const [frontCrop, setFrontCrop] = useState<CropArea>(getAutoCrop());
+  const [backCrop, setBackCrop] = useState<CropArea>(getAutoCrop());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [frontSize, setFrontSize] = useState({ w: 0, h: 0 });
+  const [backSize, setBackSize] = useState({ w: 0, h: 0 });
 
   async function handleFrontChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -246,7 +263,7 @@ export default function UploadPage() {
     const dims = await getImageDimensions(preview);
     if (dims.w === 0) { toast.error("圖片載入失敗"); return; }
     setFrontImg({ file, preview, naturalW: dims.w, naturalH: dims.h });
-    setFrontCrop(getAutoCrop(dims.w, dims.h));
+    setFrontCrop(getAutoCrop());
     setError("");
   }
 
@@ -257,12 +274,12 @@ export default function UploadPage() {
     const dims = await getImageDimensions(preview);
     if (dims.w === 0) { toast.error("圖片載入失敗"); return; }
     setBackImg({ file, preview, naturalW: dims.w, naturalH: dims.h });
-    setBackCrop(getAutoCrop(dims.w, dims.h));
+    setBackCrop(getAutoCrop());
   }
 
   function clearBack() {
     setBackImg({ file: null, preview: null, naturalW: 0, naturalH: 0 });
-    setBackCrop({ x: 0, y: 0, width: 0, height: 0 });
+    setBackCrop(getAutoCrop());
     if (backInputRef.current) backInputRef.current.value = "";
   }
 
@@ -274,15 +291,15 @@ export default function UploadPage() {
 
     try {
       let frontBlob: Blob;
-      if (frontCrop.width > 20 && frontCrop.height > 20) {
-        frontBlob = await cropAndResizeImage(frontImg.file, frontCrop, 800);
+      if (frontCrop.width > 5 && frontCrop.height > 5) {
+        frontBlob = await cropAndResizeImage(frontImg.file, frontCrop, frontImg.naturalW, frontImg.naturalH, 800);
       } else {
         frontBlob = await compressImage(frontImg.file, 500 * 1024);
       }
 
       let backBlob: Blob | null = null;
-      if (backImg.file && backCrop.width > 20 && backCrop.height > 20) {
-        backBlob = await cropAndResizeImage(backImg.file, backCrop, 800);
+      if (backImg.file && backCrop.width > 5 && backCrop.height > 5) {
+        backBlob = await cropAndResizeImage(backImg.file, backCrop, backImg.naturalW, backImg.naturalH, 800);
       } else if (backImg.file) {
         backBlob = await compressImage(backImg.file, 500 * 1024);
       }
@@ -331,7 +348,6 @@ export default function UploadPage() {
     }
   }
 
-  const imgContainer: React.CSSProperties = { border: '2px solid #667EEA', borderRadius: '0.75rem', overflow: 'hidden', cursor: 'crosshair' };
   const btnBase: React.CSSProperties = { flex: 1, padding: '0.5rem', fontSize: '0.8rem', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: '600', border: 'none' };
 
   return (
@@ -355,7 +371,7 @@ export default function UploadPage() {
       <main style={{ maxWidth: '36rem', margin: '0 auto', padding: '1.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: 'white', marginBottom: '0.5rem' }}>上傳名片</h2>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9375rem' }}>選擇照片後拖曳調整裁切範圍</p>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9375rem' }}>拖曳角落調整裁切範圍</p>
         </div>
 
         <div style={{ background: 'white', borderRadius: '1.5rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', padding: '2rem', position: 'relative', zIndex: 1, animation: 'slideUp 0.4s ease-out' }}>
@@ -371,21 +387,34 @@ export default function UploadPage() {
             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>名片正面 <span style={{ color: '#EF4444' }}>*</span></label>
             {frontImg.preview ? (
               <div>
-                <CropOverlay
-                  src={frontImg.preview}
-                  crop={frontCrop}
-                  onCropChange={setFrontCrop}
-                  naturalW={frontImg.naturalW}
-                  naturalH={frontImg.naturalH}
-                />
+                <div style={{ position: 'relative', borderRadius: '0.75rem', overflow: 'hidden', border: '2px solid #667EEA' }}>
+                  <img
+                    src={frontImg.preview}
+                    alt="正面預覽"
+                    style={{ display: 'block', width: '100%', height: 'auto', userSelect: 'none', pointerEvents: 'none' }}
+                    onLoad={(e) => {
+                      const w = (e.target as HTMLImageElement).clientWidth;
+                      const h = (e.target as HTMLImageElement).clientHeight;
+                      setFrontSize({ w, h });
+                    }}
+                  />
+                  {frontSize.w > 0 && (
+                    <CropBox
+                      crop={frontCrop}
+                      onCropChange={setFrontCrop}
+                      containerW={frontSize.w}
+                      containerH={frontSize.h}
+                    />
+                  )}
+                </div>
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  <button type="button" onClick={() => setFrontCrop(getAutoCrop(frontImg.naturalW, frontImg.naturalH))} style={{ ...btnBase, border: '1px solid #667EEA', background: '#EEF2FF', color: '#667EEA' }}>🔄 自動偵測</button>
-                  <button type="button" onClick={() => setFrontCrop({ x: 0, y: 0, width: frontImg.naturalW, height: frontImg.naturalH })} style={{ ...btnBase, border: '1px solid #9CA3AF', background: 'white', color: '#6B7280' }}>顯示全部</button>
-                  <button type="button" onClick={() => { const f = frontInputRef.current!; const d = window.document.createEvent('MouseEvent'); d.initEvent('click', true, true); f.dispatchEvent(d); }} style={{ ...btnBase, border: '1px solid #E5E7EB', background: '#F3F4F6', color: '#6B7280' }}>🔄 重新選擇</button>
+                  <button type="button" onClick={() => setFrontCrop(getAutoCrop())} style={{ ...btnBase, border: '1px solid #667EEA', background: '#EEF2FF', color: '#667EEA' }}>🔄 自動偵測</button>
+                  <button type="button" onClick={() => setFrontCrop({ x: 0, y: 0, width: 100, height: 100 })} style={{ ...btnBase, border: '1px solid #9CA3AF', background: 'white', color: '#6B7280' }}>顯示全部</button>
+                  <button type="button" onClick={() => frontInputRef.current?.click()} style={{ ...btnBase, border: '1px solid #E5E7EB', background: '#F3F4F6', color: '#6B7280' }}>🔄 重新選擇</button>
                 </div>
               </div>
             ) : (
-              <div onClick={() => frontInputRef.current?.click()} style={{ ...imgContainer, padding: '2rem', textAlign: 'center', background: '#F8FAFC', border: '2px dashed #CBD5E1' }}>
+              <div onClick={() => frontInputRef.current?.click()} style={{ padding: '2rem', textAlign: 'center', background: '#F8FAFC', border: '2px dashed #CBD5E1', borderRadius: '0.75rem', cursor: 'pointer' }}>
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="1.5" style={{ margin: '0 auto 0.5rem' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                 <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#64748B' }}>點擊上傳名片正面</p>
                 <p style={{ fontSize: '0.75rem', color: '#9CA3AF', marginTop: '0.25rem' }}>支援 JPG、PNG、WebP</p>
@@ -399,21 +428,34 @@ export default function UploadPage() {
             <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>名片背面 <span style={{ color: '#9CA3AF', fontWeight: '400' }}>（選填）</span></label>
             {backImg.preview ? (
               <div>
-                <CropOverlay
-                  src={backImg.preview}
-                  crop={backCrop}
-                  onCropChange={setBackCrop}
-                  naturalW={backImg.naturalW}
-                  naturalH={backImg.naturalH}
-                />
+                <div style={{ position: 'relative', borderRadius: '0.75rem', overflow: 'hidden', border: '2px solid #667EEA' }}>
+                  <img
+                    src={backImg.preview}
+                    alt="背面預覽"
+                    style={{ display: 'block', width: '100%', height: 'auto', userSelect: 'none', pointerEvents: 'none' }}
+                    onLoad={(e) => {
+                      const w = (e.target as HTMLImageElement).clientWidth;
+                      const h = (e.target as HTMLImageElement).clientHeight;
+                      setBackSize({ w, h });
+                    }}
+                  />
+                  {backSize.w > 0 && (
+                    <CropBox
+                      crop={backCrop}
+                      onCropChange={setBackCrop}
+                      containerW={backSize.w}
+                      containerH={backSize.h}
+                    />
+                  )}
+                </div>
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  <button type="button" onClick={() => setBackCrop(getAutoCrop(backImg.naturalW, backImg.naturalH))} style={{ ...btnBase, border: '1px solid #667EEA', background: '#EEF2FF', color: '#667EEA' }}>🔄 自動偵測</button>
-                  <button type="button" onClick={() => setBackCrop({ x: 0, y: 0, width: backImg.naturalW, height: backImg.naturalH })} style={{ ...btnBase, border: '1px solid #9CA3AF', background: 'white', color: '#6B7280' }}>顯示全部</button>
+                  <button type="button" onClick={() => setBackCrop(getAutoCrop())} style={{ ...btnBase, border: '1px solid #667EEA', background: '#EEF2FF', color: '#667EEA' }}>🔄 自動偵測</button>
+                  <button type="button" onClick={() => setBackCrop({ x: 0, y: 0, width: 100, height: 100 })} style={{ ...btnBase, border: '1px solid #9CA3AF', background: 'white', color: '#6B7280' }}>顯示全部</button>
                   <button type="button" onClick={clearBack} style={{ ...btnBase, border: '1px solid #E5E7EB', background: '#F3F4F6', color: '#6B7280' }}>🗑 移除</button>
                 </div>
               </div>
             ) : (
-              <div onClick={() => backInputRef.current?.click()} style={{ ...imgContainer, padding: '1.5rem', textAlign: 'center', background: '#F8FAFC', border: '2px dashed #CBD5E1' }}>
+              <div onClick={() => backInputRef.current?.click()} style={{ padding: '1.5rem', textAlign: 'center', background: '#F8FAFC', border: '2px dashed #CBD5E1', borderRadius: '0.75rem', cursor: 'pointer' }}>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="1.5" style={{ margin: '0 auto 0.5rem' }}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg>
                 <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#64748B' }}>點擊上傳名片背面</p>
               </div>
@@ -423,7 +465,7 @@ export default function UploadPage() {
         </div>
 
         <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1rem', backdropFilter: 'blur(8px)' }}>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', textAlign: 'center', lineHeight: 1.6 }}>💡 提示：拖曳裁切框可調整位置，裁切後統一壓縮至 800px 寬</p>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', textAlign: 'center', lineHeight: 1.6 }}>💡 拖曳藍色方框拖動位置，拖曳角落調整大小</p>
         </div>
       </main>
 
